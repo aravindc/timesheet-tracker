@@ -1,0 +1,50 @@
+services:
+  backend:
+    container_name: tt-backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - GIN_MODE=release
+    env_file:
+      - ./.env.app
+    healthcheck:
+      test: curl --fail http://localhost:8080/api/healthz/live || exit 1
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - front-tier
+      - back-tier
+  frontend:
+    container_name: tt-frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    networks:
+      - front-tier
+  # 1. NEW: The Nginx reverse proxy gateway
+  proxy:
+    container_name: tt-proxy
+    image: nginx:stable-alpine
+    restart: always
+    ports:
+      - "8089:80" # This is the ONLY port exposed to the host machine
+    volumes:
+      - ./proxy/nginx.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - front-tier
+      - back-tier
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+networks:
+  front-tier:
+    driver: bridge
+  back-tier:
+    driver: bridge
