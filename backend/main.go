@@ -17,7 +17,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var jwtSecret = []byte("your-secret-key-change-in-production")
+var jwtSecret = []byte("")
 
 type User struct {
 	ID           int       `json:"id"`
@@ -87,6 +87,8 @@ func main() {
 	}
 	defer db.Close()
 
+	jwtSecret = []byte(os.Getenv("JWT_SECRET"))
+
 	server := &Server{db: db}
 
 	if err := server.initDB(); err != nil {
@@ -144,7 +146,7 @@ func (s *Server) setupRouter() {
 
 	// Configure CORS - more permissive for development
 	s.router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:8089", "http://timetracker.pers.dev"},
+		AllowOrigins:     []string{"http://localhost:8089", "http://timesheet.pravitha.in"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -152,7 +154,7 @@ func (s *Server) setupRouter() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	allowedIPs := getWhitelistedIPs()
+	// allowedIPs := getWhitelistedIPs()
 	// allowedCIDRs := getWhitelistedCIDRs()
 	trustedProxies := getTrustedProxies()
 	if len(trustedProxies) > 0 {
@@ -170,20 +172,10 @@ func (s *Server) setupRouter() {
 	// API routes
 	api := s.router.Group("/api")
 	{
-		// Add to your routes for testing
-		api.GET("/debug/ip", func(c *gin.Context) {
-			c.JSON(200, gin.H{
-				"client_ip":       c.ClientIP(),
-				"remote_addr":     c.Request.RemoteAddr,
-				"x_forwarded_for": c.Request.Header.Get("X-Forwarded-For"),
-				"x_real_ip":       c.Request.Header.Get("X-Real-IP"),
-				"trusted_proxies": trustedProxies,
-			})
-		})
 		// Authentication routes (public)
 		auth := api.Group("/auth")
 		{
-			auth.POST("/register", IPWhitelistMiddleware(allowedIPs), s.register)
+			//auth.POST("/register", IPWhitelistMiddleware(allowedIPs), s.register)
 			auth.POST("/login", s.login)
 			auth.GET("/verify", s.authMiddleware(), s.verify)
 		}
