@@ -253,7 +253,7 @@ const addProject = async () => {
   try {
     if (!authToken) return;
     // POST to backend
-    const response = await fetch(`${API_URL}/api/projects`, {
+    const response = await fetch(`${API_URL}/projects`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
