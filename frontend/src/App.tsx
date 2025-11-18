@@ -185,7 +185,7 @@ const loadProjects = async () => {
   try {
     const authToken = localStorage.getItem('authToken'); // your stored JWT
     // Try fetching from backend
-    const response = await fetch('/api/projects',{
+    const response = await fetch(`${API_URL}/projects`,{
       method: 'GET',
         headers: {
           'Authorization': `Bearer ${authToken}`
@@ -292,7 +292,7 @@ const addProject = async () => {
 const deleteProject = async (projectId: number) => {
   try {
     const authToken = localStorage.getItem('authToken'); // your stored JWT
-    const response = await fetch(`/api/projects/${projectId}`, {
+    const response = await fetch(`${API_URL}/projects/${projectId}`, {
       method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${authToken}`
