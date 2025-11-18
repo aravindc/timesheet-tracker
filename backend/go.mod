@@ -6,6 +6,7 @@ require (
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.11.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/lib/pq v1.10.9
 	github.com/marcboeker/go-duckdb v1.8.5
 	golang.org/x/crypto v0.40.0
 )

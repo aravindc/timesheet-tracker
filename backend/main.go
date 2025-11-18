@@ -2,6 +2,9 @@ package main
 
 import (
 	"database/sql"
+
+	_ "github.com/lib/pq"
+
 	"fmt"
 	"log"
 	"net"
@@ -81,14 +84,22 @@ type Server struct {
 }
 
 func main() {
-	db, err := sql.Open("duckdb", "./timesheet.db")
+	// db, err := sql.Open("duckdb", "./timesheet.db")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// defer db.Close()
+	dbURL := os.Getenv("SUPABASE_DB_URL")
+	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Failed to connect to Supabase:", err)
 	}
-	defer db.Close()
 
-	jwtSecret = []byte(os.Getenv("JWT_SECRET"))
-
+	jwtSecretStr := os.Getenv("JWT_SECRET")
+	if jwtSecretStr == "" {
+		log.Fatal("FATAL: JWT_SECRET is missing")
+	}
+	jwtSecret = []byte(jwtSecretStr)
 	server := &Server{db: db}
 
 	if err := server.initDB(); err != nil {
@@ -105,37 +116,34 @@ func main() {
 
 func (s *Server) initDB() error {
 	query := `
-		CREATE TABLE IF NOT EXISTS users (
-			id INTEGER PRIMARY KEY,
-			username VARCHAR NOT NULL UNIQUE,
-			password_hash VARCHAR NOT NULL,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		);
-		CREATE SEQUENCE IF NOT EXISTS users_seq START 1;
+			CREATE TABLE IF NOT EXISTS users (
+				id SERIAL PRIMARY KEY,
+				username VARCHAR NOT NULL UNIQUE,
+				password_hash VARCHAR NOT NULL,
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			);
 
-		CREATE TABLE IF NOT EXISTS projects (
-			id INTEGER PRIMARY KEY,
-			name VARCHAR NOT NULL UNIQUE,
-			description TEXT,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		);
-		CREATE SEQUENCE IF NOT EXISTS projects_seq START 1;
+			CREATE TABLE IF NOT EXISTS projects (
+				id SERIAL PRIMARY KEY,
+				name VARCHAR NOT NULL UNIQUE,
+				description TEXT,
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			);
 
-		CREATE TABLE IF NOT EXISTS work_days (
-			id INTEGER PRIMARY KEY,
-			date DATE NOT NULL,
-			project_id INTEGER,
-			project_name VARCHAR,
-			start_time TIMESTAMP,
-			end_time TIMESTAMP,
-			break_hours DOUBLE DEFAULT 0,
-			total_hours DOUBLE,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			UNIQUE(date, project_id)
-		);
-		CREATE SEQUENCE IF NOT EXISTS work_days_seq START 1;
-	`
+			CREATE TABLE IF NOT EXISTS work_days (
+				id SERIAL PRIMARY KEY,
+				date DATE NOT NULL,
+				project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+				project_name VARCHAR,
+				start_time TIMESTAMP,
+				end_time TIMESTAMP,
+				break_hours DOUBLE PRECISION DEFAULT 0,
+				total_hours DOUBLE PRECISION,
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+				updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+				UNIQUE(date, project_id)
+			);
+			`
 	_, err := s.db.Exec(query)
 	return err
 }
@@ -146,7 +154,7 @@ func (s *Server) setupRouter() {
 
 	// Configure CORS - more permissive for development
 	s.router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:8089", "http://timesheet.pravitha.in"},
+		AllowOrigins:     []string{"http://localhost:8089", "https://timesheet.pravitha.in"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -220,7 +228,7 @@ func (s *Server) register(c *gin.Context) {
 
 	// Check if user exists
 	var exists bool
-	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username = ?)", req.Username).Scan(&exists)
+	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)", req.Username).Scan(&exists)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
@@ -239,8 +247,8 @@ func (s *Server) register(c *gin.Context) {
 
 	// Create user
 	query := `
-		INSERT INTO users (id, username, password_hash)
-		VALUES (nextval('users_seq'), ?, ?)
+		INSERT INTO users (username, password_hash)
+		VALUES ($1, $2)
 		RETURNING id, username, created_at
 	`
 
@@ -275,7 +283,7 @@ func (s *Server) login(c *gin.Context) {
 
 	// Get user from database
 	var user User
-	query := "SELECT id, username, password_hash, created_at FROM users WHERE username = ?"
+	query := "SELECT id, username, password_hash, created_at FROM users WHERE username = $1"
 	err := s.db.QueryRow(query, req.Username).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
@@ -450,9 +458,9 @@ func (s *Server) createProject(c *gin.Context) {
 	}
 
 	query := `
-		INSERT INTO projects (id, name, description)
-		VALUES (nextval('projects_seq'), ?, ?)
-		RETURNING id, created_at
+			INSERT INTO projects (name, description)
+			VALUES ($1, $2)
+			RETURNING id, created_at
 	`
 
 	err := s.db.QueryRow(query, project.Name, project.Description).
@@ -475,9 +483,9 @@ func (s *Server) updateProject(c *gin.Context) {
 	}
 
 	query := `
-		UPDATE projects
-		SET name = ?, description = ?
-		WHERE id = ?
+			UPDATE projects
+			SET name = $1, description = $2
+			WHERE id = $3
 	`
 
 	result, err := s.db.Exec(query, project.Name, project.Description, id)
@@ -498,7 +506,7 @@ func (s *Server) updateProject(c *gin.Context) {
 func (s *Server) deleteProject(c *gin.Context) {
 	id := c.Param("id")
 
-	result, err := s.db.Exec("DELETE FROM projects WHERE id = ?", id)
+	result, err := s.db.Exec("DELETE FROM projects WHERE id = $1", id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -559,7 +567,7 @@ func (s *Server) getWorkDaysByMonth(c *gin.Context) {
 		query = `
 			SELECT id, date, project_id, project_name, start_time, end_time, break_hours, total_hours, created_at, updated_at
 			FROM work_days
-			WHERE EXTRACT(YEAR FROM date) = ? AND EXTRACT(MONTH FROM date) = ? AND project_id = ?
+			WHERE EXTRACT(YEAR FROM date) = $1 AND EXTRACT(MONTH FROM date) = $2 AND project_id = $3
 			ORDER BY date ASC
 		`
 		args = []interface{}{year, month, projectID}
@@ -567,7 +575,7 @@ func (s *Server) getWorkDaysByMonth(c *gin.Context) {
 		query = `
 			SELECT id, date, project_id, project_name, start_time, end_time, break_hours, total_hours, created_at, updated_at
 			FROM work_days
-			WHERE EXTRACT(YEAR FROM date) = ? AND EXTRACT(MONTH FROM date) = ?
+			WHERE EXTRACT(YEAR FROM date) = $1 AND EXTRACT(MONTH FROM date) = $2
 			ORDER BY date ASC
 		`
 		args = []interface{}{year, month}
@@ -618,9 +626,10 @@ func (s *Server) createWorkDay(c *gin.Context) {
 	}
 
 	query := `
-		INSERT INTO work_days (id, date, project_id, project_name, start_time, end_time, break_hours, total_hours)
-		VALUES (nextval('work_days_seq'), ?, ?, ?, ?, ?, ?, ?)
-		RETURNING id, created_at, updated_at
+			INSERT INTO work_days
+			(date, project_id, project_name, start_time, end_time, break_hours, total_hours)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			RETURNING id, created_at, updated_at
 	`
 
 	err := s.db.QueryRow(query, wd.Date, wd.ProjectID, wd.ProjectName, wd.StartTime, wd.EndTime, wd.BreakHours, totalHours).
@@ -651,8 +660,8 @@ func (s *Server) updateWorkDay(c *gin.Context) {
 
 	query := `
 		UPDATE work_days
-		SET date = ?, project_id = ?, project_name = ?, start_time = ?, end_time = ?, break_hours = ?, total_hours = ?, updated_at = CURRENT_TIMESTAMP
-		WHERE id = ?
+		SET date = $1, project_id = $2, project_name = $3, start_time = $4, end_time = $5, break_hours = $6, total_hours = $7, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $8
 	`
 
 	result, err := s.db.Exec(query, wd.Date, wd.ProjectID, wd.ProjectName, wd.StartTime, wd.EndTime, wd.BreakHours, totalHours, id)
@@ -674,7 +683,7 @@ func (s *Server) updateWorkDay(c *gin.Context) {
 func (s *Server) deleteWorkDay(c *gin.Context) {
 	id := c.Param("id")
 
-	result, err := s.db.Exec("DELETE FROM work_days WHERE id = ?", id)
+	result, err := s.db.Exec("DELETE FROM work_days WHERE id = $1", id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
