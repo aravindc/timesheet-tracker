@@ -183,7 +183,7 @@ export default function TimesheetTracker() {
 
 const loadProjects = async () => {
   try {
-    const authToken = localStorage.getItem('authToken'); // your stored JWT
+    if (!authToken) return;
     // Try fetching from backend
     const response = await fetch(`${API_URL}/projects`,{
       method: 'GET',
@@ -251,7 +251,7 @@ const addProject = async () => {
   };
 
   try {
-    const authToken = localStorage.getItem('authToken'); // your stored JWT
+    if (!authToken) return;
     // POST to backend
     const response = await fetch(`${API_URL}/api/projects`, {
       method: 'POST',
@@ -291,7 +291,7 @@ const addProject = async () => {
 
 const deleteProject = async (projectId: number) => {
   try {
-    const authToken = localStorage.getItem('authToken'); // your stored JWT
+    if (!authToken) return;
     const response = await fetch(`${API_URL}/projects/${projectId}`, {
       method: 'DELETE',
         headers: {
