@@ -16,7 +16,6 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	_ "github.com/marcboeker/go-duckdb"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -84,11 +83,6 @@ type Server struct {
 }
 
 func main() {
-	// db, err := sql.Open("duckdb", "./timesheet.db")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// defer db.Close()
 	dbURL := os.Getenv("SUPABASE_DB_URL")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
@@ -162,7 +156,7 @@ func (s *Server) setupRouter() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// allowedIPs := getWhitelistedIPs()
+	allowedIPs := getWhitelistedIPs()
 	// allowedCIDRs := getWhitelistedCIDRs()
 	trustedProxies := getTrustedProxies()
 	if len(trustedProxies) > 0 {
@@ -183,7 +177,7 @@ func (s *Server) setupRouter() {
 		// Authentication routes (public)
 		auth := api.Group("/auth")
 		{
-			//auth.POST("/register", IPWhitelistMiddleware(allowedIPs), s.register)
+			auth.POST("/register", IPWhitelistMiddleware(allowedIPs), s.register)
 			auth.POST("/login", s.login)
 			auth.GET("/verify", s.authMiddleware(), s.verify)
 		}
