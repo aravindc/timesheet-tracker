@@ -183,8 +183,14 @@ export default function TimesheetTracker() {
 
 const loadProjects = async () => {
   try {
+    const token = localStorage.getItem('authToken'); // your stored JWT
     // Try fetching from backend
-    const response = await fetch('/api/projects');
+    const response = await fetch('/api/projects',{
+      method: 'GET',
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      }
+    });
     if (!response.ok) {
       throw new Error('Failed to fetch projects from server');
     }
@@ -245,11 +251,13 @@ const addProject = async () => {
   };
 
   try {
+    const token = localStorage.getItem('authToken'); // your stored JWT
     // POST to backend
     const response = await fetch(`${API_URL}/api/projects`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(newProject),
     });
@@ -283,8 +291,12 @@ const addProject = async () => {
 
 const deleteProject = async (projectId: number) => {
   try {
+    const token = localStorage.getItem('authToken'); // your stored JWT
     const response = await fetch(`/api/projects/${projectId}`, {
       method: 'DELETE',
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      }
     });
 
     if (!response.ok) {
