@@ -748,13 +748,6 @@ const deleteProject = async (projectId: number) => {
       >
         SHIFTS
       </th>
-<!--      <th
-        className={`px-4 py-3 text-center font-semibold border ${
-          darkMode ? 'border-gray-700 text-white' : 'border-gray-300 text-gray-900'
-        }`}
-      >
-        BREAK
-      </th> -->
       <th
         className={`px-4 py-3 pr-8 text-right font-semibold border ${
           darkMode ? 'border-gray-700 text-white' : 'border-gray-300 text-gray-900'
@@ -814,13 +807,6 @@ const deleteProject = async (projectId: number) => {
                 hour12: false,
               })}
             </td>
-            <!-- <td
-              className={`px-4 py-3 text-center border ${
-                darkMode ? 'border-gray-700 text-orange-400' : 'border-gray-300 text-orange-600'
-              }`}
-            >
-              {wd.break_hours > 0 ? `${wd.break_hours}h` : '-'}
-            </td> -->
             <td
               className={`px-4 py-3 pr-8 text-right font-semibold border ${
                 darkMode ? 'border-gray-700 text-green-400' : 'border-gray-300 text-green-600'
@@ -854,13 +840,6 @@ const deleteProject = async (projectId: number) => {
           }`}
         >
           {sortedWorkDays.length} days
-        </td>
-        <td
-          className={`px-4 py-3 text-center border ${
-            darkMode ? 'border-gray-700 text-gray-400' : 'border-gray-300 text-gray-600'
-          }`}
-        >
-          -
         </td>
         <td
           className={`px-4 py-3 pr-8 text-right text-lg border ${
