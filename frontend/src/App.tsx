@@ -181,36 +181,51 @@ export default function TimesheetTracker() {
     setIsAuthenticated(false);
   };
 
-const loadProjects = async () => {
-  try {
-    if (!authToken) return;
-    // Try fetching from backend
-    const response = await fetch(`${API_URL}/projects`,{
-      method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        }
-    });
-    if (!response.ok) {
-      throw new Error('Failed to fetch projects from server');
-    }
-
-    const backendProjects: Project[] = await response.json();
-
-    if (backendProjects.length > 0) {
-      setProjects(backendProjects);
-      localStorage.setItem('projects', JSON.stringify(backendProjects));
-
-      // Set active project if not already in localStorage
-      const savedActiveProject = localStorage.getItem('activeProject');
-      if (savedActiveProject) {
-        setActiveProject(JSON.parse(savedActiveProject));
-      } else {
-        setActiveProject(backendProjects[0]);
-        localStorage.setItem('activeProject', JSON.stringify(backendProjects[0]));
+  const loadProjects = async () => {
+    try {
+      if (!authToken) return;
+      // Try fetching from backend
+      const response = await fetch(`${API_URL}/projects`,{
+        method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch projects from server');
       }
-    } else {
-      // fallback to localStorage if backend has no projects
+
+      const backendProjects: Project[] = await response.json();
+
+      if (backendProjects.length > 0) {
+        setProjects(backendProjects);
+        localStorage.setItem('projects', JSON.stringify(backendProjects));
+
+        // Set active project if not already in localStorage
+        const savedActiveProject = localStorage.getItem('activeProject');
+        if (savedActiveProject) {
+          setActiveProject(JSON.parse(savedActiveProject));
+        } else {
+          setActiveProject(backendProjects[0]);
+          localStorage.setItem('activeProject', JSON.stringify(backendProjects[0]));
+        }
+      } else {
+        // fallback to localStorage if backend has no projects
+        const savedProjects = localStorage.getItem('projects');
+        const savedActiveProject = localStorage.getItem('activeProject');
+
+        if (savedProjects) {
+          setProjects(JSON.parse(savedProjects));
+        }
+
+        if (savedActiveProject) {
+          setActiveProject(JSON.parse(savedActiveProject));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading projects:', error);
+
+      // fallback to localStorage on error
       const savedProjects = localStorage.getItem('projects');
       const savedActiveProject = localStorage.getItem('activeProject');
 
@@ -222,102 +237,87 @@ const loadProjects = async () => {
         setActiveProject(JSON.parse(savedActiveProject));
       }
     }
-  } catch (error) {
-    console.error('Error loading projects:', error);
-
-    // fallback to localStorage on error
-    const savedProjects = localStorage.getItem('projects');
-    const savedActiveProject = localStorage.getItem('activeProject');
-
-    if (savedProjects) {
-      setProjects(JSON.parse(savedProjects));
-    }
-
-    if (savedActiveProject) {
-      setActiveProject(JSON.parse(savedActiveProject));
-    }
-  }
-};
-
-
-const addProject = async () => {
-  if (!newProjectName.trim()) return;
-
-  const newProject: Project = {
-    id: projects.length > 0 ? Math.max(...projects.map(p => p.id)) + 1 : 1,
-    name: newProjectName.trim(),
-    description: newProjectDesc.trim(),
-    created_at: new Date().toISOString(),
   };
 
-  try {
-    if (!authToken) return;
-    // POST to backend
-    const response = await fetch(`${API_URL}/projects`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
-      },
-      body: JSON.stringify(newProject),
-    });
 
-    if (!response.ok) {
-      throw new Error('Failed to add project on server');
-    }
+  const addProject = async () => {
+    if (!newProjectName.trim()) return;
 
-    const savedProject = await response.json(); // backend might return the project with its ID
+    const newProject: Project = {
+      id: projects.length > 0 ? Math.max(...projects.map(p => p.id)) + 1 : 1,
+      name: newProjectName.trim(),
+      description: newProjectDesc.trim(),
+      created_at: new Date().toISOString(),
+    };
 
-    // Update frontend state
-    const updatedProjects = [...projects, savedProject];
-    setProjects(updatedProjects);
-    localStorage.setItem('projects', JSON.stringify(updatedProjects));
-
-    // Set as active if first project
-    if (projects.length === 0) {
-      setActiveProject(savedProject);
-      localStorage.setItem('activeProject', JSON.stringify(savedProject));
-    }
-
-    setNewProjectName('');
-    setNewProjectDesc('');
-    setShowAddProject(false);
-  } catch (error) {
-    console.error('Error adding project:', error);
-    // optionally show an error notification to the user
-  }
-};
-
-
-const deleteProject = async (projectId: number) => {
-  try {
-    if (!authToken) return;
-    const response = await fetch(`${API_URL}/projects/${projectId}`, {
-      method: 'DELETE',
+    try {
+      if (!authToken) return;
+      // POST to backend
+      const response = await fetch(`${API_URL}/projects`, {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${authToken}`
-        }
-    });
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(newProject),
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to delete project on server');
+      if (!response.ok) {
+        throw new Error('Failed to add project on server');
+      }
+
+      const savedProject = await response.json(); // backend might return the project with its ID
+
+      // Update frontend state
+      const updatedProjects = [...projects, savedProject];
+      setProjects(updatedProjects);
+      localStorage.setItem('projects', JSON.stringify(updatedProjects));
+
+      // Set as active if first project
+      if (projects.length === 0) {
+        setActiveProject(savedProject);
+        localStorage.setItem('activeProject', JSON.stringify(savedProject));
+      }
+
+      setNewProjectName('');
+      setNewProjectDesc('');
+      setShowAddProject(false);
+    } catch (error) {
+      console.error('Error adding project:', error);
+      // optionally show an error notification to the user
     }
+  };
 
-    // Update frontend state
-    const updatedProjects = projects.filter(p => p.id !== projectId);
-    setProjects(updatedProjects);
-    localStorage.setItem('projects', JSON.stringify(updatedProjects));
 
-    // Clear active if deleted
-    if (activeProject?.id === projectId) {
-      setActiveProject(null);
-      localStorage.removeItem('activeProject');
+  const deleteProject = async (projectId: number) => {
+    try {
+      if (!authToken) return;
+      const response = await fetch(`${API_URL}/projects/${projectId}`, {
+        method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${authToken}`
+          }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete project on server');
+      }
+
+      // Update frontend state
+      const updatedProjects = projects.filter(p => p.id !== projectId);
+      setProjects(updatedProjects);
+      localStorage.setItem('projects', JSON.stringify(updatedProjects));
+
+      // Clear active if deleted
+      if (activeProject?.id === projectId) {
+        setActiveProject(null);
+        localStorage.removeItem('activeProject');
+      }
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      // Optionally show user feedback
     }
-  } catch (error) {
-    console.error('Error deleting project:', error);
-    // Optionally show user feedback
-  }
-};
+  };
 
   const setAsActive = (project: Project) => {
     setActiveProject(project);
@@ -593,7 +593,7 @@ const deleteProject = async (projectId: number) => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <h4 className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                        {project.name}
+                        {project.id === activeProject?.id ? (<button onClick={() => setView('calendar')}>{project.name}</button>):(<>{project.name}</>)}
                       </h4>
                       {project.id === activeProject?.id && (
                         <span className={`px-2 py-0.5 rounded text-xs font-semibold ${

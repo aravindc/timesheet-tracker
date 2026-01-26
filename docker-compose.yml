@@ -13,8 +13,8 @@ services:
       interval: 10s
       timeout: 3s
       retries: 3
-    volumes:
-      - ./backend/timesheet.db:/app/timesheet.db
+    # volumes:
+    #   - ./backend/timesheet.db:/app/timesheet.db
     networks:
       - front-tier
       - back-tier

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	_ "github.com/lib/pq"
+	"go.uber.org/zap"
 
 	"fmt"
 	"log"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gin-contrib/cors"
+	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -80,31 +82,37 @@ type ProjectStat struct {
 type Server struct {
 	db     *sql.DB
 	router *gin.Engine
+	logger *zap.Logger
 }
 
 func main() {
+	logger, err := InitLogger()
+	if err != nil {
+		panic(err)
+	}
+	defer logger.Sync()
 	dbURL := os.Getenv("SUPABASE_DB_URL")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		log.Fatal("Failed to connect to Supabase:", err)
+		logger.Fatal("Failed to connect to Supabase", zap.Error(err))
 	}
 
 	jwtSecretStr := os.Getenv("JWT_SECRET")
 	if jwtSecretStr == "" {
-		log.Fatal("FATAL: JWT_SECRET is missing")
+		logger.Fatal("Failed to connect to Supabase", zap.Error(err))
 	}
 	jwtSecret = []byte(jwtSecretStr)
-	server := &Server{db: db}
+	server := &Server{db: db, logger: logger}
 
 	if err := server.initDB(); err != nil {
-		log.Fatal(err)
+		logger.Fatal("Failed to init DB", zap.Error(err))
 	}
 
 	server.setupRouter()
 
 	fmt.Println("Server starting on :8080")
 	if err := server.router.Run(":8080"); err != nil {
-		log.Fatal(err)
+		logger.Fatal("Server failed", zap.Error(err))
 	}
 }
 
@@ -143,8 +151,10 @@ func (s *Server) initDB() error {
 }
 
 func (s *Server) setupRouter() {
+
 	s.router = gin.Default()
-	s.router.Use(LoggerWithIP())
+	s.router.Use(ginzap.Ginzap(s.logger, time.RFC3339, true))
+	s.router.Use(ginzap.RecoveryWithZap(s.logger, true))
 
 	// Configure CORS - more permissive for development
 	s.router.Use(cors.New(cors.Config{
@@ -223,6 +233,7 @@ func (s *Server) register(c *gin.Context) {
 	// Check if user exists
 	var exists bool
 	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)", req.Username).Scan(&exists)
+	s.logger.Sugar().Error(err)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
@@ -278,6 +289,7 @@ func (s *Server) login(c *gin.Context) {
 	// Get user from database
 	var user User
 	query := "SELECT id, username, password_hash, created_at FROM users WHERE username = $1"
+
 	err := s.db.QueryRow(query, req.Username).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.CreatedAt)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
