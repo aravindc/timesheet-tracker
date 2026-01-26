@@ -38,3 +38,6 @@ Thumbs.db
 /main
 /bin/
 /dist/
+
+keep-alive.sh
+.env*
