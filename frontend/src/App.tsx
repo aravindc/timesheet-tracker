@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Play, Trash2, BarChart3, Calendar, ChevronLeft, ChevronRight, Moon, Sun, LogOut, PoundSterling } from 'lucide-react';
+import { Clock, Play, Trash2, BarChart3, Calendar, ChevronLeft, ChevronRight, Moon, Sun, LogOut, PoundSterling, Receipt } from 'lucide-react';
 
 const API_URL = '/api';
 
@@ -46,6 +46,25 @@ interface HourlyRate {
   created_at: string;
 }
 
+interface TaxBand {
+  name: string;
+  rate: number;
+  amount: number;
+}
+
+interface Payslip {
+  month: string;
+  total_hours: number;
+  total_minutes: number;
+  hourly_rate: number;
+  gross_pay: number;
+  income_tax: number;
+  national_insurance: number;
+  net_pay: number;
+  tax_breakdown: TaxBand[];
+  ni_breakdown: TaxBand[];
+}
+
 export default function TimesheetTracker() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -60,7 +79,7 @@ export default function TimesheetTracker() {
     const saved = localStorage.getItem('darkMode');
     return saved ? JSON.parse(saved) : false;
   });
-  const [view, setView] = useState<'home' | 'calendar' | 'report' | 'rates'>('home');
+  const [view, setView] = useState<'home' | 'calendar' | 'report' | 'rates' | 'payslip'>('home');
 
   const [hourlyRates, setHourlyRates] = useState<HourlyRate[]>([]);
   const [showAddRate, setShowAddRate] = useState(false);
@@ -77,6 +96,12 @@ export default function TimesheetTracker() {
   const [workDays, setWorkDays] = useState<WorkDay[]>([]);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [editingDay, setEditingDay] = useState<WorkDay | null>(null);
+
+  // Payslip state
+  const [payslip, setPayslip] = useState<Payslip | null>(null);
+  const [payslipMonth, setPayslipMonth] = useState(new Date());
+  const [payslipLoading, setPayslipLoading] = useState(false);
+  const [payslipError, setPayslipError] = useState('');
 
   // Save dark mode preference
   useEffect(() => {
@@ -546,6 +571,30 @@ export default function TimesheetTracker() {
     }
   };
 
+  const fetchPayslip = async (date: Date) => {
+    if (!authToken) return;
+    const monthStr = date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }).replace(' ', '-');
+    setPayslipLoading(true);
+    setPayslipError('');
+    setPayslip(null);
+    try {
+      const response = await fetch(`${API_URL}/payslip/${monthStr}`, {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        setPayslipError(err.error || 'Failed to load payslip');
+        return;
+      }
+      const data: Payslip = await response.json();
+      setPayslip(data);
+    } catch (error) {
+      setPayslipError('Failed to load payslip');
+    } finally {
+      setPayslipLoading(false);
+    }
+  };
+
   const addHourlyRate = async () => {
     const parsed = parseFloat(newRate);
     if (isNaN(parsed) || parsed <= 0) return;
@@ -644,6 +693,168 @@ export default function TimesheetTracker() {
                 </button>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderPayslip = () => {
+    const monthLabel = payslipMonth.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    const hoursInt = Math.floor(payslip?.total_hours ?? 0);
+    const minsInt = payslip ? payslip.total_minutes - hoursInt * 60 : 0;
+
+    return (
+      <div>
+        {/* Month navigator */}
+        <div className="flex items-center justify-between mb-6 print:mb-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => {
+                const d = new Date(payslipMonth.getFullYear(), payslipMonth.getMonth() - 1);
+                setPayslipMonth(d);
+                fetchPayslip(d);
+              }}
+              className={`p-2 rounded-lg transition-colors print:hidden ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+            >
+              <ChevronLeft className={`w-6 h-6 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`} />
+            </button>
+            <h2 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+              {monthLabel}
+            </h2>
+            <button
+              onClick={() => {
+                const d = new Date(payslipMonth.getFullYear(), payslipMonth.getMonth() + 1);
+                setPayslipMonth(d);
+                fetchPayslip(d);
+              }}
+              className={`p-2 rounded-lg transition-colors print:hidden ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+            >
+              <ChevronRight className={`w-6 h-6 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`} />
+            </button>
+          </div>
+          <button
+            onClick={() => window.print()}
+            className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors print:hidden"
+          >
+            Print Payslip
+          </button>
+        </div>
+
+        {payslipLoading && (
+          <div className={`text-center py-12 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            Loading payslip…
+          </div>
+        )}
+
+        {payslipError && !payslipLoading && (
+          <div className={`rounded-xl p-6 border-2 border-dashed text-center ${darkMode ? 'border-red-700 text-red-400' : 'border-red-300 text-red-600'}`}>
+            {payslipError}
+          </div>
+        )}
+
+        {payslip && !payslipLoading && (
+          <div className="space-y-4">
+            {/* Earnings */}
+            <div className={`rounded-xl p-6 border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              <h3 className={`text-sm font-semibold uppercase tracking-wide mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                Earnings
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Hours worked</span>
+                  <span className={`font-mono font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    {hoursInt}h {minsInt}m
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Hourly rate</span>
+                  <span className={`font-mono font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                    £{payslip.hourly_rate.toFixed(2)}
+                  </span>
+                </div>
+                <div className={`flex justify-between items-center pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Gross Pay</span>
+                  <span className={`font-mono text-lg font-bold ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
+                    £{payslip.gross_pay.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Deductions */}
+            <div className={`rounded-xl p-6 border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+              <h3 className={`text-sm font-semibold uppercase tracking-wide mb-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                Deductions
+              </h3>
+              <div className="space-y-3">
+                {/* Income tax bands */}
+                <div className="flex justify-between items-center">
+                  <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>Income Tax</span>
+                  <span className={`font-mono font-semibold ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
+                    −£{payslip.income_tax.toFixed(2)}
+                  </span>
+                </div>
+                {(payslip.tax_breakdown ?? []).map((band) => (
+                  <div key={band.name} className="flex justify-between items-center pl-4">
+                    <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {band.name}
+                    </span>
+                    <span className={`text-sm font-mono ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      £{band.amount.toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+
+                {/* NI */}
+                <div className="flex justify-between items-center">
+                  <span className={darkMode ? 'text-gray-300' : 'text-gray-700'}>National Insurance</span>
+                  <span className={`font-mono font-semibold ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
+                    −£{payslip.national_insurance.toFixed(2)}
+                  </span>
+                </div>
+                {(payslip.ni_breakdown ?? []).map((band) => (
+                  <div key={band.name} className="flex justify-between items-center pl-4">
+                    <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      {band.name}
+                    </span>
+                    <span className={`text-sm font-mono ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                      £{band.amount.toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+
+                {/* Total deductions */}
+                <div className={`flex justify-between items-center pt-3 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <span className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Total Deductions</span>
+                  <span className={`font-mono text-lg font-bold ${darkMode ? 'text-red-400' : 'text-red-600'}`}>
+                    −£{(payslip.income_tax + payslip.national_insurance).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Net pay */}
+            <div className={`rounded-xl p-6 border-2 ${darkMode ? 'bg-indigo-900 border-indigo-600' : 'bg-indigo-50 border-indigo-300'}`}>
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className={`text-sm font-semibold uppercase tracking-wide ${darkMode ? 'text-indigo-300' : 'text-indigo-600'}`}>
+                    Estimated Net Pay
+                  </p>
+                  <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    After income tax &amp; National Insurance
+                  </p>
+                </div>
+                <span className={`font-mono text-3xl font-bold ${darkMode ? 'text-white' : 'text-indigo-700'}`}>
+                  £{payslip.net_pay.toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Disclaimer */}
+            <p className={`text-xs text-center ${darkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+              This is an estimate only based on 2024/25 UK tax bands. It does not account for student loans, pension contributions, tax code adjustments, or other deductions.
+            </p>
           </div>
         )}
       </div>
@@ -1303,12 +1514,12 @@ export default function TimesheetTracker() {
         <div className={`w-full rounded-2xl shadow-xl p-4 md:p-8 mb-8 transition-colors ${
           darkMode ? 'bg-gray-800' : 'bg-white'
         }`}>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-8 print:hidden">
             <div className="flex items-center gap-3">
               <Clock className={`w-8 h-8 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
               <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Timesheet Tracker</h1>
             </div>
-            
+
             <div className="flex gap-2 items-center">
               {currentUser && (
                 <div className={`px-3 py-1.5 rounded-lg ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'}`}>
@@ -1389,10 +1600,25 @@ export default function TimesheetTracker() {
                 <PoundSterling className="w-4 h-4" />
                 Rates
               </button>
+              <button
+                onClick={() => { setView('payslip'); fetchPayslip(payslipMonth); }}
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
+                  view === 'payslip'
+                    ? 'bg-indigo-600 text-white'
+                    : darkMode
+                      ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                <Receipt className="w-4 h-4" />
+                Payslip
+              </button>
             </div>
           </div>
 
           {view === 'home' && renderHome()}
+
+          {view === 'payslip' && renderPayslip()}
 
           {view === 'calendar' && (
             <div>
