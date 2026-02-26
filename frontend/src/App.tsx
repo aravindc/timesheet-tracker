@@ -1514,12 +1514,12 @@ export default function TimesheetTracker() {
         <div className={`w-full rounded-2xl shadow-xl p-4 md:p-8 mb-8 transition-colors ${
           darkMode ? 'bg-gray-800' : 'bg-white'
         }`}>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-8 print:hidden">
             <div className="flex items-center gap-3">
               <Clock className={`w-8 h-8 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
               <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Timesheet Tracker</h1>
             </div>
-            
+
             <div className="flex gap-2 items-center">
               {currentUser && (
                 <div className={`px-3 py-1.5 rounded-lg ${darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'}`}>
