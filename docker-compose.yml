@@ -5,7 +5,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      - GIN_MODE=release
+      - GIN_MODE=debug
     env_file:
       - ./.env.app
     healthcheck:

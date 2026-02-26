@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Play, Trash2, BarChart3, Calendar, ChevronLeft, ChevronRight, Moon, Sun, LogOut } from 'lucide-react';
+import { Clock, Play, Trash2, BarChart3, Calendar, ChevronLeft, ChevronRight, Moon, Sun, LogOut, PoundSterling } from 'lucide-react';
 
 const API_URL = '/api';
 
@@ -37,6 +37,15 @@ interface Project {
   created_at: string;
 }
 
+interface HourlyRate {
+  id: number;
+  user_id: number;
+  rate: number;
+  is_current: boolean;
+  effective_from: string;
+  created_at: string;
+}
+
 export default function TimesheetTracker() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,7 +60,11 @@ export default function TimesheetTracker() {
     const saved = localStorage.getItem('darkMode');
     return saved ? JSON.parse(saved) : false;
   });
-  const [view, setView] = useState<'home' | 'calendar' | 'report'>('home');
+  const [view, setView] = useState<'home' | 'calendar' | 'report' | 'rates'>('home');
+
+  const [hourlyRates, setHourlyRates] = useState<HourlyRate[]>([]);
+  const [showAddRate, setShowAddRate] = useState(false);
+  const [newRate, setNewRate] = useState('');
   const [stats, setStats] = useState<ProjectStat[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
@@ -80,6 +93,7 @@ export default function TimesheetTracker() {
     if (isAuthenticated && authToken) {
       loadProjects();
       fetchStats();
+      fetchHourlyRates();
     }
   }, [isAuthenticated, authToken]);
 
@@ -516,6 +530,124 @@ export default function TimesheetTracker() {
     }
     
     return days;
+  };
+
+  const fetchHourlyRates = async () => {
+    if (!authToken) return;
+    try {
+      const response = await fetch(`${API_URL}/hourly-rates`, {
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (!response.ok) return;
+      const data: HourlyRate[] = await response.json();
+      setHourlyRates(data);
+    } catch (error) {
+      console.error('Error fetching hourly rates:', error);
+    }
+  };
+
+  const addHourlyRate = async () => {
+    const parsed = parseFloat(newRate);
+    if (isNaN(parsed) || parsed <= 0) return;
+    try {
+      const response = await fetch(`${API_URL}/hourly-rates`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ rate: parsed }),
+      });
+      if (!response.ok) return;
+      const created: HourlyRate = await response.json();
+      setHourlyRates(prev => [created, ...prev.map(r => ({ ...r, is_current: false }))]);
+      setNewRate('');
+      setShowAddRate(false);
+    } catch (error) {
+      console.error('Error adding hourly rate:', error);
+    }
+  };
+
+  const deleteHourlyRate = async (id: number) => {
+    try {
+      const response = await fetch(`${API_URL}/hourly-rates/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${authToken}` },
+      });
+      if (!response.ok) return;
+      // Re-fetch to get accurate is_current after potential promotion
+      await fetchHourlyRates();
+    } catch (error) {
+      console.error('Error deleting hourly rate:', error);
+    }
+  };
+
+  const renderRates = () => {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+            Hourly Rates
+          </h2>
+          <button
+            onClick={() => { fetchHourlyRates(); setShowAddRate(true); }}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+          >
+            <PoundSterling className="w-4 h-4" />
+            Add Rate
+          </button>
+        </div>
+
+        {hourlyRates.length === 0 ? (
+          <div className={`rounded-xl p-8 border-2 border-dashed text-center ${
+            darkMode ? 'border-gray-600 text-gray-400' : 'border-gray-300 text-gray-500'
+          }`}>
+            No hourly rates set yet. Add your first rate.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {hourlyRates.map((r) => (
+              <div
+                key={r.id}
+                className={`rounded-lg p-4 flex items-center justify-between ${
+                  r.is_current
+                    ? darkMode ? 'bg-indigo-900 border-2 border-indigo-600' : 'bg-indigo-50 border-2 border-indigo-300'
+                    : darkMode ? 'bg-gray-700' : 'bg-gray-50'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-lg font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      £{r.rate.toFixed(2)} / hr
+                    </span>
+                    {r.is_current && (
+                      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                        darkMode ? 'bg-green-900 text-green-300' : 'bg-green-100 text-green-700'
+                      }`}>
+                        Current
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    Effective: {new Date(r.effective_from).toLocaleDateString()}
+                  </p>
+                </div>
+                <button
+                  onClick={() => deleteHourlyRate(r.id)}
+                  className={`p-2 rounded-lg transition-colors ${
+                    darkMode
+                      ? 'text-red-400 hover:text-red-300 hover:bg-red-900'
+                      : 'text-red-500 hover:text-red-700 hover:bg-red-50'
+                  }`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const renderHome = () => {
@@ -1234,15 +1366,28 @@ export default function TimesheetTracker() {
               <button
                 onClick={() => setView('report')}
                 className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-                  view === 'report' 
-                    ? 'bg-indigo-600 text-white' 
-                    : darkMode 
-                      ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                  view === 'report'
+                    ? 'bg-indigo-600 text-white'
+                    : darkMode
+                      ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                       : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                 }`}
               >
                 <BarChart3 className="w-4 h-4" />
                 Report
+              </button>
+              <button
+                onClick={() => { setView('rates'); fetchHourlyRates(); }}
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
+                  view === 'rates'
+                    ? 'bg-indigo-600 text-white'
+                    : darkMode
+                      ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                <PoundSterling className="w-4 h-4" />
+                Rates
               </button>
             </div>
           </div>
@@ -1329,10 +1474,63 @@ export default function TimesheetTracker() {
           )}
 
           {view === 'report' && renderReport()}
+
+          {view === 'rates' && renderRates()}
         </div>
       </div>
 
       {renderWorkDayModal()}
+
+      {showAddRate && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => { setShowAddRate(false); setNewRate(''); }}>
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 max-w-sm w-full mx-4`} onClick={(e) => e.stopPropagation()}>
+            <h3 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+              Add Hourly Rate
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className={`block text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Rate per hour *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g., 75.00"
+                  value={newRate}
+                  onChange={(e) => setNewRate(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addHourlyRate()}
+                  autoFocus
+                  className={`w-full px-3 py-2 border rounded-lg ${
+                    darkMode
+                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={addHourlyRate}
+                  disabled={!newRate || parseFloat(newRate) <= 0}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg transition-colors"
+                >
+                  Save Rate
+                </button>
+                <button
+                  onClick={() => { setShowAddRate(false); setNewRate(''); }}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    darkMode
+                      ? 'bg-gray-700 hover:bg-gray-600 text-gray-200'
+                      : 'bg-gray-300 hover:bg-gray-400 text-gray-800'
+                  }`}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAddProject && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowAddProject(false)}>
