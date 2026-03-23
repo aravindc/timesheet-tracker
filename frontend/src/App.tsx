@@ -1376,10 +1376,7 @@ export default function TimesheetTracker() {
         }`}>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <Clock className={`w-8 h-8 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
-              <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                Timesheet Tracker
-              </h1>
+              <img src="/logo.svg" alt="Timesheet Tracker" className="h-10" />
             </div>
             <button
               onClick={() => setDarkMode(!darkMode)}
@@ -1563,8 +1560,7 @@ export default function TimesheetTracker() {
         }`}>
           <div className="flex items-center justify-between mb-8 print:hidden">
             <div className="flex items-center gap-3">
-              <Clock className={`w-8 h-8 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
-              <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>Timesheet Tracker</h1>
+              <img src="/logo.svg" alt="Timesheet Tracker" className="h-10" />
             </div>
 
             <div className="flex gap-2 items-center">
