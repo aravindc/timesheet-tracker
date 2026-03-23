@@ -134,6 +134,8 @@ export default function TimesheetTracker() {
     const fragment = new URLSearchParams(window.location.hash.slice(1));
     const fragmentToken = fragment.get('token');
     if (fragmentToken) {
+      localStorage.removeItem('activeProject');
+      localStorage.removeItem('projects');
       localStorage.setItem('authToken', fragmentToken);
       window.history.replaceState(null, '', window.location.pathname);
     }
@@ -179,6 +181,8 @@ export default function TimesheetTracker() {
       const data = await res.json();
 
       if (res.ok) {
+        localStorage.removeItem('activeProject');
+        localStorage.removeItem('projects');
         localStorage.setItem('authToken', data.token);
         setAuthToken(data.token);
         setCurrentUser({ username: data.username, user_id: data.user_id });
@@ -223,6 +227,8 @@ export default function TimesheetTracker() {
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
+    localStorage.removeItem('activeProject');
+    localStorage.removeItem('projects');
     setAuthToken(null);
     setCurrentUser(null);
     setIsAuthenticated(false);
