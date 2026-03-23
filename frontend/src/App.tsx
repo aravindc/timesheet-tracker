@@ -1374,11 +1374,11 @@ export default function TimesheetTracker() {
         <div className={`w-full max-w-md rounded-2xl shadow-xl p-8 transition-colors ${
           darkMode ? 'bg-gray-800' : 'bg-white'
         }`}>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <Clock className={`w-8 h-8 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
               <h1 className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                Timesheet Tracker Login
+                Timesheet Tracker
               </h1>
             </div>
             <button
@@ -1392,6 +1392,10 @@ export default function TimesheetTracker() {
               {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
           </div>
+
+          <p className={`text-sm mb-6 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            Track your working hours across projects, generate monthly payslips, and view earnings — all in one place.
+          </p>
 
           <div className="mb-6">
             <div className="flex gap-2 mb-6">
