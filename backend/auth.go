@@ -35,8 +35,8 @@ func (s *Server) register(c *gin.Context) {
 	}
 
 	query := `
-		INSERT INTO users (username, password_hash)
-		VALUES ($1, $2)
+		INSERT INTO users (username, password_hash, provider)
+		VALUES ($1, $2, 'local')
 		RETURNING id, username, created_at
 	`
 
@@ -69,7 +69,7 @@ func (s *Server) login(c *gin.Context) {
 	}
 
 	var user User
-	query := "SELECT id, username, password_hash, created_at FROM users WHERE username = $1"
+	query := "SELECT id, username, password_hash, created_at FROM users WHERE username = $1 AND provider = 'local'"
 
 	err := s.db.QueryRow(query, req.Username).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.CreatedAt)
 	if err != nil {
@@ -77,7 +77,12 @@ func (s *Server) login(c *gin.Context) {
 		return
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password))
+	if !user.PasswordHash.Valid {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "This account uses social login"})
+		return
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash.String), []byte(req.Password))
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return

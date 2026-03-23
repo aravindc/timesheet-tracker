@@ -1,16 +1,20 @@
 package main
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
 type User struct {
-	ID           int       `json:"id"`
-	Username     string    `json:"username" binding:"required"`
-	PasswordHash string    `json:"-"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID           int            `json:"id"`
+	Username     string         `json:"username" binding:"required"`
+	PasswordHash sql.NullString `json:"-"`
+	Provider     string         `json:"provider"`
+	ProviderID   sql.NullString `json:"-"`
+	Email        sql.NullString `json:"email,omitempty"`
+	CreatedAt    time.Time      `json:"created_at"`
 }
 
 type RegisterRequest struct {

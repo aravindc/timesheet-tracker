@@ -57,7 +57,24 @@ func (s *Server) initDB() error {
 		);
 	`
 	_, err := s.db.Exec(query)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// OAuth columns — safe to run on every startup (idempotent)
+	migrations := []string{
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS provider VARCHAR NOT NULL DEFAULT 'local'`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS provider_id VARCHAR`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR`,
+		`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS users_provider_provider_id_idx ON users (provider, provider_id) WHERE provider_id IS NOT NULL`,
+	}
+	for _, m := range migrations {
+		if _, err := s.db.Exec(m); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Server) setupRouter() {
@@ -93,6 +110,11 @@ func (s *Server) setupRouter() {
 			auth.POST("/register", IPWhitelistMiddleware(allowedIPs), s.register)
 			auth.POST("/login", s.login)
 			auth.GET("/verify", s.authMiddleware(), s.verify)
+			// OAuth2 social login — explicit paths to avoid wildcard collision with /verify
+			auth.GET("/google/login", func(c *gin.Context) { c.Set("provider", "google"); s.oauthLogin(c) })
+			auth.GET("/google/callback", func(c *gin.Context) { c.Set("provider", "google"); s.oauthCallback(c) })
+			auth.GET("/facebook/login", func(c *gin.Context) { c.Set("provider", "facebook"); s.oauthLogin(c) })
+			auth.GET("/facebook/callback", func(c *gin.Context) { c.Set("provider", "facebook"); s.oauthCallback(c) })
 		}
 
 		health := api.Group("/healthz")
