@@ -7,7 +7,8 @@ import (
 )
 
 func (s *Server) getWorkDays(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userIDRaw, _ := c.Get("user_id")
+	userID, _ := userIDRaw.(int)
 
 	rows, err := s.db.Query(`
 		SELECT id, date, project_id, project_name, start_time, end_time, break_hours, total_hours, created_at, updated_at
@@ -40,7 +41,8 @@ func (s *Server) getWorkDays(c *gin.Context) {
 }
 
 func (s *Server) getWorkDaysByMonth(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userIDRaw, _ := c.Get("user_id")
+	userID, _ := userIDRaw.(int)
 	year := c.Param("year")
 	month := c.Param("month")
 	projectID := c.Query("project_id")
@@ -91,7 +93,8 @@ func (s *Server) getWorkDaysByMonth(c *gin.Context) {
 }
 
 func (s *Server) createWorkDay(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userIDRaw, _ := c.Get("user_id")
+	userID, _ := userIDRaw.(int)
 
 	var wd WorkDay
 	if err := c.ShouldBindJSON(&wd); err != nil {
@@ -127,7 +130,8 @@ func (s *Server) createWorkDay(c *gin.Context) {
 }
 
 func (s *Server) updateWorkDay(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userIDRaw, _ := c.Get("user_id")
+	userID, _ := userIDRaw.(int)
 	id := c.Param("id")
 
 	var wd WorkDay
@@ -164,7 +168,8 @@ func (s *Server) updateWorkDay(c *gin.Context) {
 }
 
 func (s *Server) deleteWorkDay(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userIDRaw, _ := c.Get("user_id")
+	userID, _ := userIDRaw.(int)
 	id := c.Param("id")
 
 	result, err := s.db.Exec("DELETE FROM work_days WHERE id = $1 AND user_id = $2", id, userID)

@@ -7,7 +7,8 @@ import (
 )
 
 func (s *Server) getProjects(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userIDRaw, _ := c.Get("user_id")
+	userID, _ := userIDRaw.(int)
 
 	rows, err := s.db.Query(`
 		SELECT id, name, description, created_at
@@ -39,7 +40,8 @@ func (s *Server) getProjects(c *gin.Context) {
 }
 
 func (s *Server) createProject(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userIDRaw, _ := c.Get("user_id")
+	userID, _ := userIDRaw.(int)
 
 	var project Project
 	if err := c.ShouldBindJSON(&project); err != nil {
@@ -61,7 +63,8 @@ func (s *Server) createProject(c *gin.Context) {
 }
 
 func (s *Server) updateProject(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userIDRaw, _ := c.Get("user_id")
+	userID, _ := userIDRaw.(int)
 	id := c.Param("id")
 
 	var project Project
@@ -90,7 +93,8 @@ func (s *Server) updateProject(c *gin.Context) {
 }
 
 func (s *Server) deleteProject(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userIDRaw, _ := c.Get("user_id")
+	userID, _ := userIDRaw.(int)
 	id := c.Param("id")
 
 	result, err := s.db.Exec("DELETE FROM projects WHERE id = $1 AND user_id = $2", id, userID)
@@ -109,7 +113,8 @@ func (s *Server) deleteProject(c *gin.Context) {
 }
 
 func (s *Server) handleStats(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userIDRaw, _ := c.Get("user_id")
+	userID, _ := userIDRaw.(int)
 
 	rows, err := s.db.Query(`
 		SELECT

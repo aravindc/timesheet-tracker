@@ -102,7 +102,8 @@ func (s *Server) login(c *gin.Context) {
 }
 
 func (s *Server) verify(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userIDRaw, _ := c.Get("user_id")
+	userID, _ := userIDRaw.(int)
 	username, _ := c.Get("username")
 
 	c.JSON(http.StatusOK, gin.H{

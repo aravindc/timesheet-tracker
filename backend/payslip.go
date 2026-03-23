@@ -10,7 +10,8 @@ import (
 )
 
 func (s *Server) handlePayslip(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userIDRaw, _ := c.Get("user_id")
+	userID, _ := userIDRaw.(int)
 	monthParam := c.Param("month") // e.g. "Jan-2026"
 
 	t, err := time.Parse("Jan-2006", monthParam)

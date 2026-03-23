@@ -9,7 +9,8 @@ import (
 )
 
 func (s *Server) getHourlyRates(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userIDRaw, _ := c.Get("user_id")
+	userID, _ := userIDRaw.(int)
 
 	rows, err := s.db.Query(`
 		SELECT id, user_id, rate, is_current, effective_from, created_at
@@ -41,7 +42,8 @@ func (s *Server) getHourlyRates(c *gin.Context) {
 }
 
 func (s *Server) createHourlyRate(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userIDRaw, _ := c.Get("user_id")
+	userID, _ := userIDRaw.(int)
 
 	var req HourlyRateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -87,7 +89,8 @@ func (s *Server) createHourlyRate(c *gin.Context) {
 }
 
 func (s *Server) updateHourlyRate(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userIDRaw, _ := c.Get("user_id")
+	userID, _ := userIDRaw.(int)
 	id := c.Param("id")
 
 	var req HourlyRateRequest
@@ -131,7 +134,8 @@ func (s *Server) updateHourlyRate(c *gin.Context) {
 }
 
 func (s *Server) deleteHourlyRate(c *gin.Context) {
-	userID, _ := c.Get("user_id")
+	userIDRaw, _ := c.Get("user_id")
+	userID, _ := userIDRaw.(int)
 	id := c.Param("id")
 
 	tx, err := s.db.Begin()
