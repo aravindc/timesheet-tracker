@@ -8,7 +8,7 @@ set -euo pipefail
 #   users, projects, work_days, hourly_rates
 #
 # Usage:
-#   ./db.sh backup                      # backup using SUPABASE_DB_URL from .env.app
+#   ./db.sh backup                      # backup using DATABASE_URL from .env.app
 #   ./db.sh backup  [DB_URL]            # backup from a specific DB URL
 #   ./db.sh restore [DB_URL]            # restore latest backup to a specific DB URL
 #   ./db.sh restore [DB_URL] [file]     # restore a specific SQL file to a DB URL
@@ -41,9 +41,9 @@ load_env_url() {
     exit 1
   fi
   local url
-  url=$(grep -E '^SUPABASE_DB_URL=' "$ENV_FILE" | head -1 | cut -d'=' -f2-)
+  url=$(grep -E '^DATABASE_URL=' "$ENV_FILE" | head -1 | cut -d'=' -f2-)
   if [[ -z "$url" ]]; then
-    echo "ERROR: SUPABASE_DB_URL not set in $ENV_FILE"
+    echo "ERROR: DATABASE_URL not set in $ENV_FILE"
     exit 1
   fi
   echo "$url"

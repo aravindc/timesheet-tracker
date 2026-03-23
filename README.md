@@ -130,7 +130,7 @@ App will be available at `http://localhost:8089`.
 ```bash
 cd backend
 export JWT_SECRET=<secret>
-export SUPABASE_DB_URL=<postgres-connection-string>
+export DATABASE_URL=<postgres-connection-string>
 export WHITELIST_IPS=127.0.0.1,::1
 go run .
 ```
@@ -150,7 +150,7 @@ npm run dev
 | Variable | Required | Description |
 |---|---|---|
 | `JWT_SECRET` | Yes | JWT signing secret |
-| `SUPABASE_DB_URL` | Yes | PostgreSQL connection string |
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `GIN_MODE` | No | `debug` or `release` (default: debug) |
 | `APP_ENV` | No | `development` or `production` (affects log format) |
 | `WHITELIST_IPS` | No | Comma-separated IPs allowed to register. Defaults to `127.0.0.1,::1` |

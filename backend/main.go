@@ -26,7 +26,7 @@ func main() {
 	}
 	defer logger.Sync()
 
-	dbURL := os.Getenv("SUPABASE_DB_URL")
+	dbURL := os.Getenv("DATABASE_URL")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		logger.Fatal("Failed to connect to database", zap.Error(err))
