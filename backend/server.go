@@ -61,13 +61,21 @@ func (s *Server) initDB() error {
 		return err
 	}
 
-	// OAuth columns — safe to run on every startup (idempotent)
+	// Idempotent schema migrations — safe to run on every startup
 	migrations := []string{
+		// OAuth columns
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS provider VARCHAR NOT NULL DEFAULT 'local'`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS provider_id VARCHAR`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR`,
 		`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS users_provider_provider_id_idx ON users (provider, provider_id) WHERE provider_id IS NOT NULL`,
+		// Per-user scoping for projects
+		`ALTER TABLE projects ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE`,
+		// Per-user scoping for work_days
+		`ALTER TABLE work_days ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE`,
+		// Replace global unique constraint with per-user one
+		`ALTER TABLE work_days DROP CONSTRAINT IF EXISTS work_days_date_project_id_key`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS work_days_user_date_project_idx ON work_days (user_id, date, project_id) WHERE project_id IS NOT NULL`,
 	}
 	for _, m := range migrations {
 		if _, err := s.db.Exec(m); err != nil {

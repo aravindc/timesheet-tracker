@@ -7,14 +7,15 @@ import (
 )
 
 func (s *Server) getWorkDays(c *gin.Context) {
-	query := `
+	userID, _ := c.Get("user_id")
+
+	rows, err := s.db.Query(`
 		SELECT id, date, project_id, project_name, start_time, end_time, break_hours, total_hours, created_at, updated_at
 		FROM work_days
+		WHERE user_id = $1
 		ORDER BY date DESC
 		LIMIT 100
-	`
-
-	rows, err := s.db.Query(query)
+	`, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -24,8 +25,7 @@ func (s *Server) getWorkDays(c *gin.Context) {
 	var workDays []WorkDay
 	for rows.Next() {
 		var wd WorkDay
-		err := rows.Scan(&wd.ID, &wd.Date, &wd.ProjectID, &wd.ProjectName, &wd.StartTime, &wd.EndTime, &wd.BreakHours, &wd.TotalHours, &wd.CreatedAt, &wd.UpdatedAt)
-		if err != nil {
+		if err := rows.Scan(&wd.ID, &wd.Date, &wd.ProjectID, &wd.ProjectName, &wd.StartTime, &wd.EndTime, &wd.BreakHours, &wd.TotalHours, &wd.CreatedAt, &wd.UpdatedAt); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -40,6 +40,7 @@ func (s *Server) getWorkDays(c *gin.Context) {
 }
 
 func (s *Server) getWorkDaysByMonth(c *gin.Context) {
+	userID, _ := c.Get("user_id")
 	year := c.Param("year")
 	month := c.Param("month")
 	projectID := c.Query("project_id")
@@ -51,18 +52,18 @@ func (s *Server) getWorkDaysByMonth(c *gin.Context) {
 		query = `
 			SELECT id, date, project_id, project_name, start_time, end_time, break_hours, total_hours, created_at, updated_at
 			FROM work_days
-			WHERE EXTRACT(YEAR FROM date) = $1 AND EXTRACT(MONTH FROM date) = $2 AND project_id = $3
+			WHERE user_id = $1 AND EXTRACT(YEAR FROM date) = $2 AND EXTRACT(MONTH FROM date) = $3 AND project_id = $4
 			ORDER BY date ASC
 		`
-		args = []interface{}{year, month, projectID}
+		args = []interface{}{userID, year, month, projectID}
 	} else {
 		query = `
 			SELECT id, date, project_id, project_name, start_time, end_time, break_hours, total_hours, created_at, updated_at
 			FROM work_days
-			WHERE EXTRACT(YEAR FROM date) = $1 AND EXTRACT(MONTH FROM date) = $2
+			WHERE user_id = $1 AND EXTRACT(YEAR FROM date) = $2 AND EXTRACT(MONTH FROM date) = $3
 			ORDER BY date ASC
 		`
-		args = []interface{}{year, month}
+		args = []interface{}{userID, year, month}
 	}
 
 	rows, err := s.db.Query(query, args...)
@@ -75,8 +76,7 @@ func (s *Server) getWorkDaysByMonth(c *gin.Context) {
 	var workDays []WorkDay
 	for rows.Next() {
 		var wd WorkDay
-		err := rows.Scan(&wd.ID, &wd.Date, &wd.ProjectID, &wd.ProjectName, &wd.StartTime, &wd.EndTime, &wd.BreakHours, &wd.TotalHours, &wd.CreatedAt, &wd.UpdatedAt)
-		if err != nil {
+		if err := rows.Scan(&wd.ID, &wd.Date, &wd.ProjectID, &wd.ProjectName, &wd.StartTime, &wd.EndTime, &wd.BreakHours, &wd.TotalHours, &wd.CreatedAt, &wd.UpdatedAt); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -91,6 +91,8 @@ func (s *Server) getWorkDaysByMonth(c *gin.Context) {
 }
 
 func (s *Server) createWorkDay(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+
 	var wd WorkDay
 	if err := c.ShouldBindJSON(&wd); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -108,14 +110,12 @@ func (s *Server) createWorkDay(c *gin.Context) {
 		totalHours = &hours
 	}
 
-	query := `
+	err := s.db.QueryRow(`
 		INSERT INTO work_days
-		(date, project_id, project_name, start_time, end_time, break_hours, total_hours)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		(user_id, date, project_id, project_name, start_time, end_time, break_hours, total_hours)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id, created_at, updated_at
-	`
-
-	err := s.db.QueryRow(query, wd.Date, wd.ProjectID, wd.ProjectName, wd.StartTime, wd.EndTime, wd.BreakHours, totalHours).
+	`, userID, wd.Date, wd.ProjectID, wd.ProjectName, wd.StartTime, wd.EndTime, wd.BreakHours, totalHours).
 		Scan(&wd.ID, &wd.CreatedAt, &wd.UpdatedAt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -127,6 +127,7 @@ func (s *Server) createWorkDay(c *gin.Context) {
 }
 
 func (s *Server) updateWorkDay(c *gin.Context) {
+	userID, _ := c.Get("user_id")
 	id := c.Param("id")
 
 	var wd WorkDay
@@ -141,13 +142,12 @@ func (s *Server) updateWorkDay(c *gin.Context) {
 		totalHours = &hours
 	}
 
-	query := `
+	result, err := s.db.Exec(`
 		UPDATE work_days
-		SET date = $1, project_id = $2, project_name = $3, start_time = $4, end_time = $5, break_hours = $6, total_hours = $7, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $8
-	`
-
-	result, err := s.db.Exec(query, wd.Date, wd.ProjectID, wd.ProjectName, wd.StartTime, wd.EndTime, wd.BreakHours, totalHours, id)
+		SET date = $1, project_id = $2, project_name = $3, start_time = $4, end_time = $5,
+		    break_hours = $6, total_hours = $7, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $8 AND user_id = $9
+	`, wd.Date, wd.ProjectID, wd.ProjectName, wd.StartTime, wd.EndTime, wd.BreakHours, totalHours, id, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -164,9 +164,10 @@ func (s *Server) updateWorkDay(c *gin.Context) {
 }
 
 func (s *Server) deleteWorkDay(c *gin.Context) {
+	userID, _ := c.Get("user_id")
 	id := c.Param("id")
 
-	result, err := s.db.Exec("DELETE FROM work_days WHERE id = $1", id)
+	result, err := s.db.Exec("DELETE FROM work_days WHERE id = $1 AND user_id = $2", id, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

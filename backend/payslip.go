@@ -25,9 +25,9 @@ func (s *Server) handlePayslip(c *gin.Context) {
 	err = s.db.QueryRow(`
 		SELECT COALESCE(SUM(total_hours), 0), COALESCE(SUM(break_hours), 0)
 		FROM work_days
-		WHERE EXTRACT(YEAR FROM date) = $1 AND EXTRACT(MONTH FROM date) = $2
+		WHERE user_id = $1 AND EXTRACT(YEAR FROM date) = $2 AND EXTRACT(MONTH FROM date) = $3
 		  AND total_hours IS NOT NULL
-	`, year, month).Scan(&totalHoursRaw, &totalBreakHours)
+	`, userID, year, month).Scan(&totalHoursRaw, &totalBreakHours)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

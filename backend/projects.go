@@ -7,13 +7,14 @@ import (
 )
 
 func (s *Server) getProjects(c *gin.Context) {
-	query := `
+	userID, _ := c.Get("user_id")
+
+	rows, err := s.db.Query(`
 		SELECT id, name, description, created_at
 		FROM projects
+		WHERE user_id = $1
 		ORDER BY created_at DESC
-	`
-
-	rows, err := s.db.Query(query)
+	`, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -23,8 +24,7 @@ func (s *Server) getProjects(c *gin.Context) {
 	var projects []Project
 	for rows.Next() {
 		var p Project
-		err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.CreatedAt)
-		if err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.CreatedAt); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -39,20 +39,19 @@ func (s *Server) getProjects(c *gin.Context) {
 }
 
 func (s *Server) createProject(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+
 	var project Project
 	if err := c.ShouldBindJSON(&project); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	query := `
-		INSERT INTO projects (name, description)
-		VALUES ($1, $2)
+	err := s.db.QueryRow(`
+		INSERT INTO projects (name, description, user_id)
+		VALUES ($1, $2, $3)
 		RETURNING id, created_at
-	`
-
-	err := s.db.QueryRow(query, project.Name, project.Description).
-		Scan(&project.ID, &project.CreatedAt)
+	`, project.Name, project.Description, userID).Scan(&project.ID, &project.CreatedAt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -62,6 +61,7 @@ func (s *Server) createProject(c *gin.Context) {
 }
 
 func (s *Server) updateProject(c *gin.Context) {
+	userID, _ := c.Get("user_id")
 	id := c.Param("id")
 
 	var project Project
@@ -70,13 +70,11 @@ func (s *Server) updateProject(c *gin.Context) {
 		return
 	}
 
-	query := `
+	result, err := s.db.Exec(`
 		UPDATE projects
 		SET name = $1, description = $2
-		WHERE id = $3
-	`
-
-	result, err := s.db.Exec(query, project.Name, project.Description, id)
+		WHERE id = $3 AND user_id = $4
+	`, project.Name, project.Description, id, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -92,9 +90,10 @@ func (s *Server) updateProject(c *gin.Context) {
 }
 
 func (s *Server) deleteProject(c *gin.Context) {
+	userID, _ := c.Get("user_id")
 	id := c.Param("id")
 
-	result, err := s.db.Exec("DELETE FROM projects WHERE id = $1", id)
+	result, err := s.db.Exec("DELETE FROM projects WHERE id = $1 AND user_id = $2", id, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -110,19 +109,19 @@ func (s *Server) deleteProject(c *gin.Context) {
 }
 
 func (s *Server) handleStats(c *gin.Context) {
-	query := `
+	userID, _ := c.Get("user_id")
+
+	rows, err := s.db.Query(`
 		SELECT
 			project_id,
 			project_name,
 			COUNT(*) as entry_count,
 			SUM(total_hours) as total_hours
 		FROM work_days
-		WHERE end_time IS NOT NULL AND total_hours IS NOT NULL
+		WHERE end_time IS NOT NULL AND total_hours IS NOT NULL AND user_id = $1
 		GROUP BY project_id, project_name
 		ORDER BY total_hours DESC
-	`
-
-	rows, err := s.db.Query(query)
+	`, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
