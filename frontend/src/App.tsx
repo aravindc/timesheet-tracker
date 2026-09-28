@@ -587,7 +587,9 @@ export default function TimesheetTracker() {
 
   const fetchPayslip = async (date: Date) => {
     if (!authToken) return;
-    const monthStr = date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }).replace(' ', '-');
+    // Build MMM-YYYY manually: locale formatting can yield "Sept", which the backend rejects
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthStr = `${monthNames[date.getMonth()]}-${date.getFullYear()}`;
     setPayslipLoading(true);
     setPayslipError('');
     setPayslip(null);
