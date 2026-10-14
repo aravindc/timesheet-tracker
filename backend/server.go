@@ -107,7 +107,6 @@ func (s *Server) setupRouter() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	allowedIPs := getWhitelistedIPs()
 	trustedProxies := getTrustedProxies()
 	if len(trustedProxies) > 0 {
 		if err := s.router.SetTrustedProxies(trustedProxies); err != nil {
@@ -122,7 +121,6 @@ func (s *Server) setupRouter() {
 	{
 		auth := api.Group("/auth")
 		{
-			auth.POST("/register", IPWhitelistMiddleware(allowedIPs), s.register)
 			auth.POST("/login", s.login)
 			auth.GET("/verify", s.authMiddleware(), s.verify)
 			// OAuth2 social login — explicit paths to avoid wildcard collision with /verify

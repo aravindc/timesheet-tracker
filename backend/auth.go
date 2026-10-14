@@ -11,58 +11,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func (s *Server) register(c *gin.Context) {
-	var req RegisterRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	var exists bool
-	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)", req.Username).Scan(&exists)
-	if err != nil {
-		s.logger.Sugar().Error(err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-		return
-	}
-	if exists {
-		c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
-		return
-	}
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
-		return
-	}
-
-	query := `
-		INSERT INTO users (username, password_hash, provider)
-		VALUES ($1, $2, 'local')
-		RETURNING id, username, created_at
-	`
-
-	var user User
-	err = s.db.QueryRow(query, req.Username, string(hashedPassword)).
-		Scan(&user.ID, &user.Username, &user.CreatedAt)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
-		return
-	}
-
-	token, err := generateToken(user.ID, user.Username)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
-		return
-	}
-
-	c.JSON(http.StatusCreated, LoginResponse{
-		Token:    token,
-		Username: user.Username,
-		UserID:   user.ID,
-	})
-}
-
 // dummyPasswordHash is compared against when no usable password hash exists,
 // so a login for an unknown username takes as long as one with a wrong password.
 var dummyPasswordHash, _ = bcrypt.GenerateFromPassword([]byte("timing-equaliser"), bcrypt.DefaultCost)
