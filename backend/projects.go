@@ -17,7 +17,7 @@ func (s *Server) getProjects(c *gin.Context) {
 		ORDER BY created_at DESC
 	`, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 	defer rows.Close()
@@ -26,7 +26,7 @@ func (s *Server) getProjects(c *gin.Context) {
 	for rows.Next() {
 		var p Project
 		if err := rows.Scan(&p.ID, &p.Name, &p.Description, &p.CreatedAt); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			s.respondDBError(c, err)
 			return
 		}
 		projects = append(projects, p)
@@ -55,7 +55,7 @@ func (s *Server) createProject(c *gin.Context) {
 		RETURNING id, created_at
 	`, project.Name, project.Description, userID).Scan(&project.ID, &project.CreatedAt)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 
@@ -79,7 +79,7 @@ func (s *Server) updateProject(c *gin.Context) {
 		WHERE id = $3 AND user_id = $4
 	`, project.Name, project.Description, id, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 
@@ -99,7 +99,7 @@ func (s *Server) deleteProject(c *gin.Context) {
 
 	result, err := s.db.Exec("DELETE FROM projects WHERE id = $1 AND user_id = $2", id, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 
@@ -128,19 +128,19 @@ func (s *Server) handleStats(c *gin.Context) {
 		ORDER BY total_hours DESC
 	`, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 	defer rows.Close()
 
 	var stats []ProjectStat
 	for rows.Next() {
-		var s ProjectStat
-		if err := rows.Scan(&s.ProjectID, &s.ProjectName, &s.EntryCount, &s.TotalHours); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		var st ProjectStat
+		if err := rows.Scan(&st.ProjectID, &st.ProjectName, &st.EntryCount, &st.TotalHours); err != nil {
+			s.respondDBError(c, err)
 			return
 		}
-		stats = append(stats, s)
+		stats = append(stats, st)
 	}
 
 	if stats == nil {

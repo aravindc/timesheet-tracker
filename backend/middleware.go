@@ -12,6 +12,7 @@ import (
 	ginzap "github.com/gin-contrib/zap"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"go.uber.org/zap"
 )
 
 // getWhitelistedIPs reads allowed IPs from WHITELIST_IPS env var.
@@ -186,10 +187,37 @@ func LoggerWithIP() gin.HandlerFunc {
 	})
 }
 
+// oauthCallbackPaths carry one-time authorization codes and state in the query
+// string, so the default request logger must not record them.
+var oauthCallbackPaths = []string{
+	"/api/auth/google/callback",
+	"/api/auth/facebook/callback",
+}
+
 // zapMiddlewares returns the ginzap logging and recovery middleware pair.
 func zapMiddlewares(s *Server) []gin.HandlerFunc {
 	return []gin.HandlerFunc{
-		ginzap.Ginzap(s.logger, time.RFC3339, true),
+		ginzap.GinzapWithConfig(s.logger, &ginzap.Config{
+			TimeFormat: time.RFC3339,
+			UTC:        true,
+			SkipPaths:  oauthCallbackPaths,
+		}),
 		ginzap.RecoveryWithZap(s.logger, true),
+	}
+}
+
+// requestLoggerWithoutQuery logs a request like ginzap but omits the query string.
+func (s *Server) requestLoggerWithoutQuery() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+		s.logger.Info(c.Request.URL.Path,
+			zap.Int("status", c.Writer.Status()),
+			zap.String("method", c.Request.Method),
+			zap.String("path", c.Request.URL.Path),
+			zap.String("ip", c.ClientIP()),
+			zap.String("user-agent", c.Request.UserAgent()),
+			zap.Duration("latency", time.Since(start)),
+		)
 	}
 }

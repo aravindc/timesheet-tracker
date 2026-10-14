@@ -30,7 +30,7 @@ func (s *Server) handlePayslip(c *gin.Context) {
 		  AND total_hours IS NOT NULL
 	`, userID, year, month).Scan(&totalHoursRaw, &totalBreakHours)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 
@@ -51,7 +51,7 @@ func (s *Server) handlePayslip(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 
