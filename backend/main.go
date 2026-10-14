@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"time"
 
 	_ "github.com/lib/pq"
 	"go.uber.org/zap"
@@ -57,7 +58,8 @@ func main() {
 		Endpoint:     facebook.Endpoint,
 	}
 
-	server := &Server{db: db, logger: logger}
+	server := &Server{db: db, logger: logger, loginLimiter: newLoginLimiter()}
+	server.loginLimiter.startPruning(10*time.Minute, nil)
 
 	if err := server.initDB(); err != nil {
 		logger.Fatal("Failed to init DB", zap.Error(err))

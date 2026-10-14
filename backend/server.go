@@ -14,9 +14,10 @@ import (
 )
 
 type Server struct {
-	db     *sql.DB
-	router *gin.Engine
-	logger *zap.Logger
+	db           *sql.DB
+	router       *gin.Engine
+	logger       *zap.Logger
+	loginLimiter *loginLimiter
 }
 
 func (s *Server) initDB() error {
