@@ -18,7 +18,7 @@ func (s *Server) getWorkDays(c *gin.Context) {
 		LIMIT 100
 	`, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 	defer rows.Close()
@@ -27,7 +27,7 @@ func (s *Server) getWorkDays(c *gin.Context) {
 	for rows.Next() {
 		var wd WorkDay
 		if err := rows.Scan(&wd.ID, &wd.Date, &wd.ProjectID, &wd.ProjectName, &wd.StartTime, &wd.EndTime, &wd.BreakHours, &wd.TotalHours, &wd.CreatedAt, &wd.UpdatedAt); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			s.respondDBError(c, err)
 			return
 		}
 		workDays = append(workDays, wd)
@@ -70,7 +70,7 @@ func (s *Server) getWorkDaysByMonth(c *gin.Context) {
 
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 	defer rows.Close()
@@ -79,7 +79,7 @@ func (s *Server) getWorkDaysByMonth(c *gin.Context) {
 	for rows.Next() {
 		var wd WorkDay
 		if err := rows.Scan(&wd.ID, &wd.Date, &wd.ProjectID, &wd.ProjectName, &wd.StartTime, &wd.EndTime, &wd.BreakHours, &wd.TotalHours, &wd.CreatedAt, &wd.UpdatedAt); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			s.respondDBError(c, err)
 			return
 		}
 		workDays = append(workDays, wd)
@@ -121,7 +121,7 @@ func (s *Server) createWorkDay(c *gin.Context) {
 	`, userID, wd.Date, wd.ProjectID, wd.ProjectName, wd.StartTime, wd.EndTime, wd.BreakHours, totalHours).
 		Scan(&wd.ID, &wd.CreatedAt, &wd.UpdatedAt)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 
@@ -153,7 +153,7 @@ func (s *Server) updateWorkDay(c *gin.Context) {
 		WHERE id = $8 AND user_id = $9
 	`, wd.Date, wd.ProjectID, wd.ProjectName, wd.StartTime, wd.EndTime, wd.BreakHours, totalHours, id, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 
@@ -174,7 +174,7 @@ func (s *Server) deleteWorkDay(c *gin.Context) {
 
 	result, err := s.db.Exec("DELETE FROM work_days WHERE id = $1 AND user_id = $2", id, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 

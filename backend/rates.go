@@ -19,7 +19,7 @@ func (s *Server) getHourlyRates(c *gin.Context) {
 		ORDER BY effective_from DESC
 	`, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 	defer rows.Close()
@@ -28,7 +28,7 @@ func (s *Server) getHourlyRates(c *gin.Context) {
 	for rows.Next() {
 		var r HourlyRate
 		if err := rows.Scan(&r.ID, &r.UserID, &r.Rate, &r.IsCurrent, &r.EffectiveFrom, &r.CreatedAt); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			s.respondDBError(c, err)
 			return
 		}
 		rates = append(rates, r)
@@ -58,14 +58,14 @@ func (s *Server) createHourlyRate(c *gin.Context) {
 
 	tx, err := s.db.Begin()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 	defer tx.Rollback()
 
 	_, err = tx.Exec(`UPDATE hourly_rates SET is_current = FALSE WHERE user_id = $1`, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 
@@ -76,12 +76,12 @@ func (s *Server) createHourlyRate(c *gin.Context) {
 		RETURNING id, user_id, rate, is_current, effective_from, created_at
 	`, userID, req.Rate, effectiveFrom).Scan(&r.ID, &r.UserID, &r.Rate, &r.IsCurrent, &r.EffectiveFrom, &r.CreatedAt)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 
 	if err := tx.Commit(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 
@@ -110,7 +110,7 @@ func (s *Server) updateHourlyRate(c *gin.Context) {
 		WHERE id = $3 AND user_id = $4
 	`, req.Rate, effectiveFrom, id, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 
@@ -126,7 +126,7 @@ func (s *Server) updateHourlyRate(c *gin.Context) {
 		FROM hourly_rates WHERE id = $1
 	`, id).Scan(&r.ID, &r.UserID, &r.Rate, &r.IsCurrent, &r.EffectiveFrom, &r.CreatedAt)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 
@@ -140,7 +140,7 @@ func (s *Server) deleteHourlyRate(c *gin.Context) {
 
 	tx, err := s.db.Begin()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 	defer tx.Rollback()
@@ -154,7 +154,7 @@ func (s *Server) deleteHourlyRate(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 
@@ -169,13 +169,13 @@ func (s *Server) deleteHourlyRate(c *gin.Context) {
 			)
 		`, userID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			s.respondDBError(c, err)
 			return
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		s.respondDBError(c, err)
 		return
 	}
 

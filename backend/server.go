@@ -2,12 +2,14 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/lib/pq"
 	"go.uber.org/zap"
 )
 
@@ -86,7 +88,8 @@ func (s *Server) initDB() error {
 }
 
 func (s *Server) setupRouter() {
-	s.router = gin.Default()
+	// gin.New rather than gin.Default: ginzap already provides logging and recovery.
+	s.router = gin.New()
 	for _, mw := range zapMiddlewares(s) {
 		s.router.Use(mw)
 	}
@@ -120,9 +123,9 @@ func (s *Server) setupRouter() {
 			auth.GET("/verify", s.authMiddleware(), s.verify)
 			// OAuth2 social login — explicit paths to avoid wildcard collision with /verify
 			auth.GET("/google/login", func(c *gin.Context) { c.Set("provider", "google"); s.oauthLogin(c) })
-			auth.GET("/google/callback", func(c *gin.Context) { c.Set("provider", "google"); s.oauthCallback(c) })
+			auth.GET("/google/callback", s.requestLoggerWithoutQuery(), func(c *gin.Context) { c.Set("provider", "google"); s.oauthCallback(c) })
 			auth.GET("/facebook/login", func(c *gin.Context) { c.Set("provider", "facebook"); s.oauthLogin(c) })
-			auth.GET("/facebook/callback", func(c *gin.Context) { c.Set("provider", "facebook"); s.oauthCallback(c) })
+			auth.GET("/facebook/callback", s.requestLoggerWithoutQuery(), func(c *gin.Context) { c.Set("provider", "facebook"); s.oauthCallback(c) })
 		}
 
 		health := api.Group("/healthz")
@@ -157,4 +160,30 @@ func (s *Server) setupRouter() {
 
 func (s *Server) liveness(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
+
+// respondDBError logs a database error and sends a generic response so that
+// Postgres internals (constraint, table and column names) never reach clients.
+func (s *Server) respondDBError(c *gin.Context, err error) {
+	status, msg := http.StatusInternalServerError, "Internal server error"
+
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) {
+		switch {
+		case pqErr.Code == "23505": // unique_violation
+			status, msg = http.StatusConflict, "A record with these values already exists"
+		case pqErr.Code == "23503": // foreign_key_violation
+			status, msg = http.StatusBadRequest, "Referenced record does not exist"
+		case pqErr.Code.Class() == "22": // data_exception, e.g. malformed id or date
+			status, msg = http.StatusBadRequest, "Invalid input"
+		}
+	}
+
+	s.logger.Error("database error",
+		zap.String("method", c.Request.Method),
+		zap.String("route", c.FullPath()),
+		zap.Int("status", status),
+		zap.Error(err),
+	)
+	c.JSON(status, gin.H{"error": msg})
 }

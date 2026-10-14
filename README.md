@@ -151,7 +151,7 @@ npm run dev
 |---|---|---|
 | `JWT_SECRET` | Yes | JWT signing secret |
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `GIN_MODE` | No | `debug` or `release` (default: debug) |
+| `GIN_MODE` | No | `debug` or `release` (default: debug; `docker-compose.yml` sets `release`) |
 | `APP_ENV` | No | `development` or `production` (affects log format) |
 | `WHITELIST_IPS` | No | Comma-separated IPs allowed to register. Defaults to `127.0.0.1,::1` |
 | `WHITELIST_CIDRS` | No | Comma-separated CIDR blocks allowed to register |

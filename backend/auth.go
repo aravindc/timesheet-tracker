@@ -18,8 +18,8 @@ func (s *Server) register(c *gin.Context) {
 
 	var exists bool
 	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE username = $1)", req.Username).Scan(&exists)
-	s.logger.Sugar().Error(err)
 	if err != nil {
+		s.logger.Sugar().Error(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
