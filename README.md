@@ -10,7 +10,7 @@ A self-hosted time tracking application with project management, hourly rate tra
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18 + TypeScript + Vite + TailwindCSS |
+| Frontend | React 18 + TypeScript + Vite + Tailwind CSS v4 |
 | Backend | Go (Gin) |
 | Database | PostgreSQL (Supabase) |
 | Auth | JWT (Bearer token) + bcrypt |
