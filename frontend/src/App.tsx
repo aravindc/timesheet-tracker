@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Play, Trash2, BarChart3, Calendar, ChevronLeft, ChevronRight, Moon, Sun, LogOut, PoundSterling, Receipt } from 'lucide-react';
+import { tokenExpiry } from './utils';
 
 const API_URL = '/api';
 
@@ -128,6 +129,18 @@ export default function TimesheetTracker() {
       fetchWorkDays();
     }
   }, [view, currentMonth, activeProject, isAuthenticated, authToken]);
+
+  // Log out when the token expires, rather than leaving an idle tab making failing requests
+  useEffect(() => {
+    if (!authToken) return;
+    const expiresAt = tokenExpiry(authToken);
+    if (expiresAt === null) return;
+    const timer = setTimeout(() => {
+      handleLogout();
+      setAuthError('Your session has expired. Please log in again.');
+    }, Math.max(0, expiresAt - Date.now()));
+    return () => clearTimeout(timer);
+  }, [authToken]);
 
   const checkAuth = async () => {
     // Read token from URL fragment (OAuth callback redirect)

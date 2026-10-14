@@ -70,12 +70,15 @@ func (s *Server) verify(c *gin.Context) {
 	})
 }
 
+// tokenLifetime is one working day, limiting how long a leaked token stays useful.
+const tokenLifetime = 8 * time.Hour
+
 func generateToken(userID int, username string) (string, error) {
 	claims := Claims{
 		UserID:   userID,
 		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(tokenLifetime)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
