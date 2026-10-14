@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
@@ -20,19 +21,47 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// State helpers (HMAC-signed, stateless CSRF protection)
+// State helpers (HMAC-signed state bound to the browser by a nonce cookie)
 // ---------------------------------------------------------------------------
 
-func generateOAuthState(provider string) (string, error) {
-	ts := strconv.FormatInt(time.Now().Unix(), 10)
-	payload := provider + ":" + ts
+const (
+	oauthStateCookie = "oauth_state"
+	oauthStateTTL    = 10 * time.Minute
+)
+
+// oauthCookieSecure marks the state cookie Secure; set from OAUTH_REDIRECT_BASE.
+var oauthCookieSecure bool
+
+// oauthStateKey derives a dedicated key so the JWT signing key is not reused as-is.
+func oauthStateKey() []byte {
 	mac := hmac.New(sha256.New, jwtSecret)
-	mac.Write([]byte(payload))
-	sig := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
-	return base64.RawURLEncoding.EncodeToString([]byte(payload)) + "." + sig, nil
+	mac.Write([]byte("oauth-state"))
+	return mac.Sum(nil)
 }
 
-func validateOAuthState(state, expectedProvider string) error {
+func signOAuthState(payload string) string {
+	mac := hmac.New(sha256.New, oauthStateKey())
+	mac.Write([]byte(payload))
+	return base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+// generateOAuthState returns a signed state and the nonce embedded in it. The
+// nonce must also be stored in the browser (see setOAuthStateCookie) so the
+// callback can tell that the same browser started the login.
+func generateOAuthState(provider string) (state, nonce string, err error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", "", err
+	}
+	nonce = base64.RawURLEncoding.EncodeToString(b)
+	ts := strconv.FormatInt(time.Now().Unix(), 10)
+	payload := provider + ":" + ts + ":" + nonce
+	return base64.RawURLEncoding.EncodeToString([]byte(payload)) + "." + signOAuthState(payload), nonce, nil
+}
+
+// validateOAuthState checks the state's signature, provider and age, and that
+// its nonce matches cookieNonce from the browser that completes the login.
+func validateOAuthState(state, expectedProvider, cookieNonce string) error {
 	parts := strings.SplitN(state, ".", 2)
 	if len(parts) != 2 {
 		return fmt.Errorf("invalid state format")
@@ -43,25 +72,39 @@ func validateOAuthState(state, expectedProvider string) error {
 	}
 	payload := string(payloadBytes)
 
-	mac := hmac.New(sha256.New, jwtSecret)
-	mac.Write([]byte(payload))
-	expectedSig := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
-	if !hmac.Equal([]byte(parts[1]), []byte(expectedSig)) {
+	if !hmac.Equal([]byte(parts[1]), []byte(signOAuthState(payload))) {
 		return fmt.Errorf("state signature mismatch")
 	}
 
-	segs := strings.SplitN(payload, ":", 2)
-	if len(segs) != 2 {
+	segs := strings.SplitN(payload, ":", 3)
+	if len(segs) != 3 {
 		return fmt.Errorf("invalid state payload")
 	}
 	if segs[0] != expectedProvider {
 		return fmt.Errorf("state provider mismatch")
 	}
 	ts, err := strconv.ParseInt(segs[1], 10, 64)
-	if err != nil || time.Now().Unix()-ts > 600 {
+	if err != nil || time.Since(time.Unix(ts, 0)) > oauthStateTTL {
 		return fmt.Errorf("state expired or invalid timestamp")
 	}
+	if cookieNonce == "" || !hmac.Equal([]byte(segs[2]), []byte(cookieNonce)) {
+		return fmt.Errorf("state not bound to this browser")
+	}
 	return nil
+}
+
+// setOAuthStateCookie stores the nonce for the callback. SameSite=Lax still
+// sends it on the provider's top-level redirect back to the callback.
+func setOAuthStateCookie(c *gin.Context, nonce string, maxAge int) {
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name:     oauthStateCookie,
+		Value:    nonce,
+		Path:     "/api/auth",
+		MaxAge:   maxAge,
+		HttpOnly: true,
+		Secure:   oauthCookieSecure,
+		SameSite: http.SameSiteLaxMode,
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -96,11 +139,12 @@ func (s *Server) oauthLogin(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	state, err := generateOAuthState(provider)
+	state, nonce, err := generateOAuthState(provider)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate state"})
 		return
 	}
+	setOAuthStateCookie(c, nonce, int(oauthStateTTL.Seconds()))
 	c.Redirect(http.StatusTemporaryRedirect, cfg.AuthCodeURL(state, oauth2.AccessTypeOnline))
 }
 
@@ -110,7 +154,11 @@ func (s *Server) oauthCallback(c *gin.Context) {
 		c.Redirect(http.StatusTemporaryRedirect, frontendURL+"?auth_error="+msg)
 	}
 
-	if err := validateOAuthState(c.Query("state"), provider); err != nil {
+	cookieNonce, _ := c.Cookie(oauthStateCookie)
+	// The nonce is single-use: clear it whatever the outcome.
+	setOAuthStateCookie(c, "", -1)
+	if err := validateOAuthState(c.Query("state"), provider, cookieNonce); err != nil {
+		s.logger.Sugar().Warnf("OAuth state rejected (%s): %v", provider, err)
 		redirectErr("invalid_state")
 		return
 	}
