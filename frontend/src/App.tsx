@@ -3,6 +3,8 @@ import { Clock, Play, Trash2, BarChart3, Calendar, ChevronLeft, ChevronRight, Mo
 import { tokenExpiry } from './utils';
 
 const API_URL = '/api';
+// Largest delay setTimeout accepts; anything longer overflows.
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
 interface TimeEntry {
   id: number;
@@ -135,10 +137,19 @@ export default function TimesheetTracker() {
     if (!authToken) return;
     const expiresAt = tokenExpiry(authToken);
     if (expiresAt === null) return;
-    const timer = setTimeout(() => {
-      handleLogout();
-      setAuthError('Your session has expired. Please log in again.');
-    }, Math.max(0, expiresAt - Date.now()));
+    let timer: ReturnType<typeof setTimeout>;
+    const checkExpiry = () => {
+      const remaining = expiresAt - Date.now();
+      if (remaining <= 0) {
+        handleLogout();
+        setAuthError('Your session has expired. Please log in again.');
+        return;
+      }
+      // setTimeout fires immediately for delays above 2^31-1 ms (~24.8 days),
+      // so wait in chunks no longer than that and re-check.
+      timer = setTimeout(checkExpiry, Math.min(remaining, MAX_TIMEOUT_MS));
+    };
+    checkExpiry();
     return () => clearTimeout(timer);
   }, [authToken]);
 
