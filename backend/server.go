@@ -31,7 +31,7 @@ func (s *Server) initDB() error {
 
 		CREATE TABLE IF NOT EXISTS projects (
 			id SERIAL PRIMARY KEY,
-			name VARCHAR NOT NULL UNIQUE,
+			name VARCHAR NOT NULL,
 			description TEXT,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);
@@ -74,6 +74,9 @@ func (s *Server) initDB() error {
 		`CREATE UNIQUE INDEX IF NOT EXISTS users_provider_provider_id_idx ON users (provider, provider_id) WHERE provider_id IS NOT NULL`,
 		// Per-user scoping for projects
 		`ALTER TABLE projects ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE`,
+		// Replace global unique project name with per-user one
+		`ALTER TABLE projects DROP CONSTRAINT IF EXISTS projects_name_key`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS projects_user_name_idx ON projects (user_id, name)`,
 		// Per-user scoping for work_days
 		`ALTER TABLE work_days ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE CASCADE`,
 		// Replace global unique constraint with per-user one
