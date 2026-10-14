@@ -1,6 +1,6 @@
 module timesheet-tracker
 
-go 1.25.2
+go 1.27.2
 
 require (
 	github.com/gin-contrib/cors v1.7.6

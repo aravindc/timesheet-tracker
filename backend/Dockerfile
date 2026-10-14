@@ -1,6 +1,6 @@
 # Stage 1: The "builder" stage
 # This stage uses the full Go SDK to build the application
-FROM golang:1.25-trixie  AS builder
+FROM golang:1.27.2-trixie AS builder
 
 RUN apt-get update && apt-get install -y \
     gcc \
