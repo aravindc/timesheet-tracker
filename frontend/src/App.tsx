@@ -1256,7 +1256,7 @@ export default function TimesheetTracker() {
     const displayDate = new Date(year, month - 1, day);
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => { setSelectedDay(null); setEditingDay(null); }}>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => { setSelectedDay(null); setEditingDay(null); }}>
         <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 max-w-md w-full mx-4`} onClick={(e) => e.stopPropagation()}>
           <h3 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
             {workDay.id ? 'Edit' : 'Add'} Work Day - {displayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
@@ -1383,8 +1383,8 @@ export default function TimesheetTracker() {
     return (
       <div className={`min-h-screen w-full flex items-center justify-center p-4 transition-colors ${
         darkMode 
-          ? 'bg-gradient-to-br from-gray-900 to-gray-800' 
-          : 'bg-gradient-to-br from-blue-50 to-indigo-100'
+          ? 'bg-linear-to-br from-gray-900 to-gray-800' 
+          : 'bg-linear-to-br from-blue-50 to-indigo-100'
       }`}>
         <div className={`w-full max-w-md rounded-2xl shadow-xl p-8 transition-colors ${
           darkMode ? 'bg-gray-800' : 'bg-white'
@@ -1482,7 +1482,7 @@ export default function TimesheetTracker() {
               </div>
 
               {authError && (
-                <div className="bg-red-500 bg-opacity-10 border border-red-500 text-red-500 px-4 py-2 rounded-lg text-sm">
+                <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-2 rounded-lg text-sm">
                   {authError}
                 </div>
               )}
@@ -1548,8 +1548,8 @@ export default function TimesheetTracker() {
     return (
       <div className={`min-h-screen w-full flex items-center justify-center ${
         darkMode 
-          ? 'bg-gradient-to-br from-gray-900 to-gray-800' 
-          : 'bg-gradient-to-br from-blue-50 to-indigo-100'
+          ? 'bg-linear-to-br from-gray-900 to-gray-800' 
+          : 'bg-linear-to-br from-blue-50 to-indigo-100'
       }`}>
         <div className="text-center">
           <Clock className={`w-12 h-12 mx-auto mb-4 animate-spin ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
@@ -1566,8 +1566,8 @@ export default function TimesheetTracker() {
   return (
     <div className={`min-h-screen w-full p-4 md:p-8 transition-colors ${
       darkMode 
-        ? 'bg-gradient-to-br from-gray-900 to-gray-800' 
-        : 'bg-gradient-to-br from-blue-50 to-indigo-100'
+        ? 'bg-linear-to-br from-gray-900 to-gray-800' 
+        : 'bg-linear-to-br from-blue-50 to-indigo-100'
     }`}>
       <div className="w-full max-w-7xl mx-auto">
         <div className={`w-full rounded-2xl shadow-xl p-4 md:p-8 mb-8 transition-colors ${
@@ -1766,7 +1766,7 @@ export default function TimesheetTracker() {
       {renderWorkDayModal()}
 
       {showAddRate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => { setShowAddRate(false); setNewRate(''); }}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => { setShowAddRate(false); setNewRate(''); }}>
           <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 max-w-sm w-full mx-4`} onClick={(e) => e.stopPropagation()}>
             <h3 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
               Add Hourly Rate
@@ -1817,7 +1817,7 @@ export default function TimesheetTracker() {
       )}
 
       {showAddProject && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowAddProject(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowAddProject(false)}>
           <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-6 max-w-md w-full mx-4`} onClick={(e) => e.stopPropagation()}>
             <h3 className={`text-xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
               Create New Project
