@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq"
@@ -41,6 +42,7 @@ func main() {
 
 	redirectBase := os.Getenv("OAUTH_REDIRECT_BASE")
 	frontendURL = os.Getenv("FRONTEND_URL")
+	oauthCookieSecure = strings.HasPrefix(redirectBase, "https://")
 
 	googleOAuthConfig = &oauth2.Config{
 		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),

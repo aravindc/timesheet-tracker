@@ -157,6 +157,8 @@ npm run dev
 | `WHITELIST_IPS` | No | Comma-separated IPs allowed to register. Defaults to `127.0.0.1,::1` |
 | `WHITELIST_CIDRS` | No | Comma-separated CIDR blocks allowed to register |
 | `TRUSTED_PROXIES` | No | Comma-separated proxy IPs. Defaults to `127.0.0.1,::1` |
+| `OAUTH_REDIRECT_BASE` | For OAuth | Public base URL for OAuth callbacks, e.g. `https://timesheet.example.com`. An `https://` value also marks the OAuth state cookie `Secure` |
+| `FRONTEND_URL` | For OAuth | Where the OAuth callback redirects after login |
 
 ---
 
