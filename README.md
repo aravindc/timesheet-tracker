@@ -27,7 +27,7 @@ A self-hosted time tracking application with project management, hourly rate tra
 - **Statistics** — Total hours and entry count per project
 - **Hourly Rates** — Track rate history with effective dates; mark one rate as current
 - **Payslip Generation** — Monthly payslips with UK Income Tax (2024/25) and National Insurance breakdowns
-- **IP Whitelisting** — Registration endpoint restricted by IP to prevent public sign-ups
+- **Sign-in** — Google/Facebook OAuth (creates accounts on first sign-in) or existing username/password accounts, with login rate limiting
 - **Dark Mode** — Persisted in localStorage
 
 ---
@@ -40,9 +40,9 @@ timesheet-tracker/
 │   ├── main.go          # Entry point: DB connect, JWT init, server start
 │   ├── server.go        # Router setup, DB schema init, CORS
 │   ├── models.go        # All struct definitions
-│   ├── auth.go          # register, login, verify, generateToken
+│   ├── auth.go          # login, verify, generateToken
 │   ├── loginlimiter.go  # Per-IP and per-username login attempt limits
-│   ├── middleware.go    # JWT auth, IP whitelist, env helpers
+│   ├── middleware.go    # JWT auth, request logging, env helpers
 │   ├── projects.go      # Project CRUD + stats handler
 │   ├── workdays.go      # Work day CRUD
 │   ├── rates.go         # Hourly rate CRUD
@@ -75,7 +75,6 @@ timesheet-tracker/
 ### Public
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/api/auth/register` | Register (IP whitelisted) |
 | `POST` | `/api/auth/login` | Login, returns JWT. Rate limited: 5 attempts per username (any IP) and 20 per IP, then 429 with `Retry-After` and doubling lockouts |
 | `GET` | `/api/auth/verify` | Verify token validity |
 | `GET` | `/api/healthz/live` | Liveness probe |
@@ -132,7 +131,6 @@ App will be available at `http://localhost:8089`.
 cd backend
 export JWT_SECRET=<secret>
 export DATABASE_URL=<postgres-connection-string>
-export WHITELIST_IPS=127.0.0.1,::1
 go run .
 ```
 
@@ -154,9 +152,7 @@ npm run dev
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `GIN_MODE` | No | `debug` or `release` (default: debug; `docker-compose.yml` sets `release`) |
 | `APP_ENV` | No | `development` or `production` (affects log format) |
-| `WHITELIST_IPS` | No | Comma-separated IPs allowed to register. Defaults to `127.0.0.1,::1` |
-| `WHITELIST_CIDRS` | No | Comma-separated CIDR blocks allowed to register |
-| `TRUSTED_PROXIES` | No | Comma-separated proxy IPs. Defaults to `127.0.0.1,::1` |
+| `TRUSTED_PROXIES` | No | Comma-separated IPs/CIDRs of every proxy between the client and the backend (e.g. Caddy and the `tt-proxy` nginx container), so the login rate limiter sees real client IPs. Defaults to `127.0.0.1,::1` |
 | `OAUTH_REDIRECT_BASE` | For OAuth | Public base URL for OAuth callbacks, e.g. `https://timesheet.example.com`. An `https://` value also marks the OAuth state cookie `Secure` |
 | `FRONTEND_URL` | For OAuth | Where the OAuth callback redirects after login |
 
@@ -168,7 +164,7 @@ npm run dev
 
 This is a self-hosted timesheet tracking web app. It is a monorepo with two main parts:
 
-**Backend** (`/backend`) is a Go REST API using the Gin framework. It connects to a PostgreSQL database (Supabase) and uses JWT (Bearer token) for auth. The code is split across focused files: `main.go` (entry point), `server.go` (router + DB init), `models.go` (all structs), `auth.go`, `middleware.go`, `projects.go`, `workdays.go`, `rates.go`, `payslip.go`, and `logger.go`. All files are in `package main`. The server runs on port 8080. Registration is IP-whitelisted. Passwords are bcrypt-hashed. The payslip endpoint calculates UK Income Tax and National Insurance for a given month using the user's current hourly rate and their logged work hours for that month.
+**Backend** (`/backend`) is a Go REST API using the Gin framework. It connects to a PostgreSQL database (Supabase) and uses JWT (Bearer token) for auth. The code is split across focused files: `main.go` (entry point), `server.go` (router + DB init), `models.go` (all structs), `auth.go`, `middleware.go`, `projects.go`, `workdays.go`, `rates.go`, `payslip.go`, and `logger.go`. All files are in `package main`. The server runs on port 8080. New users sign up through Google/Facebook OAuth; there is no username/password registration endpoint. Passwords are bcrypt-hashed. The payslip endpoint calculates UK Income Tax and National Insurance for a given month using the user's current hourly rate and their logged work hours for that month.
 
 **Frontend** (`/frontend`) is a React + TypeScript SPA built with Vite and styled with TailwindCSS. It is a single large `App.tsx` that manages auth state, view routing (no React Router — view state is local), and API calls. Supporting components include `CalendarView.tsx`, `TimerForm.tsx`, `EntriesList.tsx`, and `ProjectStats.tsx`. The API client is in `api.ts`. Auth tokens are stored in localStorage.
 

@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -14,46 +12,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
 )
-
-// getWhitelistedIPs reads allowed IPs from WHITELIST_IPS env var.
-func getWhitelistedIPs() []string {
-	ipsStr := os.Getenv("WHITELIST_IPS")
-	if ipsStr == "" {
-		log.Println("Warning: No WHITELIST_IPS configured, defaulting to localhost only")
-		return []string{"127.0.0.1", "::1"}
-	}
-
-	ips := strings.Split(ipsStr, ",")
-	var cleanIPs []string
-	for _, ip := range ips {
-		cleanIP := strings.TrimSpace(ip)
-		if cleanIP != "" {
-			cleanIPs = append(cleanIPs, cleanIP)
-		}
-	}
-
-	log.Printf("Loaded whitelisted IPs: %v", cleanIPs)
-	return cleanIPs
-}
-
-func getWhitelistedCIDRs() []string {
-	cidrsStr := os.Getenv("WHITELIST_CIDRS")
-	if cidrsStr == "" {
-		return []string{}
-	}
-
-	cidrs := strings.Split(cidrsStr, ",")
-	var cleanCIDRs []string
-	for _, cidr := range cidrs {
-		cleanCIDR := strings.TrimSpace(cidr)
-		if cleanCIDR != "" {
-			cleanCIDRs = append(cleanCIDRs, cleanCIDR)
-		}
-	}
-
-	log.Printf("Loaded whitelisted CIDRs: %v", cleanCIDRs)
-	return cleanCIDRs
-}
 
 // getTrustedProxies reads trusted proxy IPs from TRUSTED_PROXIES env var.
 func getTrustedProxies() []string {
@@ -72,67 +30,6 @@ func getTrustedProxies() []string {
 	}
 
 	return cleanProxies
-}
-
-// IPWhitelistMiddleware blocks requests from IPs not in allowedIPs.
-func IPWhitelistMiddleware(allowedIPs []string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		clientIP := c.ClientIP()
-
-		allowed := false
-		for _, ip := range allowedIPs {
-			if clientIP == ip {
-				allowed = true
-				break
-			}
-		}
-
-		if !allowed {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied: IP not whitelisted", "ClientIP": clientIP, "AllowedIPs": allowedIPs})
-			c.Abort()
-			return
-		}
-
-		c.Next()
-	}
-}
-
-// IPRangeWhitelistMiddleware blocks requests from IPs not within allowedCIDRs.
-func IPRangeWhitelistMiddleware(allowedCIDRs []string) gin.HandlerFunc {
-	var ipNets []*net.IPNet
-	for _, cidr := range allowedCIDRs {
-		_, ipNet, err := net.ParseCIDR(cidr)
-		if err == nil {
-			ipNets = append(ipNets, ipNet)
-		}
-	}
-
-	return func(c *gin.Context) {
-		clientIP := c.ClientIP()
-		ip := net.ParseIP(clientIP)
-
-		if ip == nil {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Invalid IP address"})
-			c.Abort()
-			return
-		}
-
-		allowed := false
-		for _, ipNet := range ipNets {
-			if ipNet.Contains(ip) {
-				allowed = true
-				break
-			}
-		}
-
-		if !allowed {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Access denied: IP not in allowed range"})
-			c.Abort()
-			return
-		}
-
-		c.Next()
-	}
 }
 
 // authMiddleware validates the JWT Bearer token and sets user_id/username in context.
