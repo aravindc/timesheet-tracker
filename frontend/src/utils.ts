@@ -33,3 +33,14 @@ export const isWeekday = (date: Date) => {
   const day = date.getDay();
   return day !== 0 && day !== 6;
 };
+
+// Returns a JWT's expiry as epoch milliseconds, or null if it can't be read.
+export const tokenExpiry = (token: string): number | null => {
+  try {
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const { exp } = JSON.parse(atob(payload));
+    return typeof exp === 'number' ? exp * 1000 : null;
+  } catch {
+    return null;
+  }
+};
