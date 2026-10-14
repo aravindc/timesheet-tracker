@@ -18,13 +18,14 @@ type User struct {
 }
 
 type RegisterRequest struct {
-	Username string `json:"username" binding:"required,min=3"`
-	Password string `json:"password" binding:"required,min=6"`
+	Username string `json:"username" binding:"required,min=3,max=64"`
+	// bcrypt ignores bytes past 72, so longer passwords would be silently truncated.
+	Password string `json:"password" binding:"required,min=10,max=72"`
 }
 
 type LoginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+	Username string `json:"username" binding:"required,max=64"`
+	Password string `json:"password" binding:"required,max=72"`
 }
 
 type LoginResponse struct {

@@ -41,6 +41,7 @@ timesheet-tracker/
 │   ├── server.go        # Router setup, DB schema init, CORS
 │   ├── models.go        # All struct definitions
 │   ├── auth.go          # register, login, verify, generateToken
+│   ├── loginlimiter.go  # Per-IP and per-username login attempt limits
 │   ├── middleware.go    # JWT auth, IP whitelist, env helpers
 │   ├── projects.go      # Project CRUD + stats handler
 │   ├── workdays.go      # Work day CRUD
@@ -75,7 +76,7 @@ timesheet-tracker/
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/api/auth/register` | Register (IP whitelisted) |
-| `POST` | `/api/auth/login` | Login, returns JWT |
+| `POST` | `/api/auth/login` | Login, returns JWT. Rate limited: 5 attempts per username (any IP) and 20 per IP, then 429 with `Retry-After` and doubling lockouts |
 | `GET` | `/api/auth/verify` | Verify token validity |
 | `GET` | `/api/healthz/live` | Liveness probe |
 
